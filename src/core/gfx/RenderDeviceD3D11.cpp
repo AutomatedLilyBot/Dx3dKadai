@@ -10,7 +10,7 @@ bool RenderDeviceD3D11::initialize(HWND hwnd, unsigned width, unsigned height, b
 m_width = width; m_height = height;
 
 
-UINT flags = 0;
+unsigned int flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #if defined(_DEBUG)
 if (enableDebug) flags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif

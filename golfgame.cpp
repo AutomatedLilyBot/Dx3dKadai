@@ -20,7 +20,7 @@ int main()
 
 	Renderer::SpriteDesc3D d;
 	d.position = {0,0,0};
-	d.size = {200,200};
+	d.size = {2,2};
 	d.rotationY = 0.35f;
 	d.albedo = {0.9f,0.6f,0.6f};
 

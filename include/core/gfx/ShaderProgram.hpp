@@ -21,6 +21,17 @@ public:
     const char* vsProfile = "vs_5_0",
     const char* psProfile = "ps_5_0");
 
+    bool compileFromFile(
+        ID3D11Device *device,
+        const std::wstring &hlslPath,
+        const D3D11_INPUT_ELEMENT_DESC *layout,
+        UINT layoutCount,
+        LPCSTR vsEntry = "VSMain",
+        LPCSTR psEntry = "PSMain",
+        const char *vsProfile = "vs_5_0",
+        const char *psProfile = "ps_5_0");
+
+
 
     void bind(ID3D11DeviceContext* ctx);
 

@@ -1,7 +1,7 @@
 ﻿# CMakeList.txt : CMake project for golfgame, include source and define
 # project specific logic here.
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.11)
 
 # vcpkg toolchain integration
 if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
@@ -30,7 +30,8 @@ file(GLOB_RECURSE HEADERS "include/**/*.hpp" "include/**/*.h")
 file(GLOB_RECURSE SOURCES "src/**/*.cpp" "src/**/*.c")
 
 # Add source to this project's executable.
-add_executable (golfgame "golfgame.cpp" "golfgame.h" ${HEADERS} ${SOURCES})
+add_executable (golfgame "golfgame.cpp" "golfgame.h" ${HEADERS} ${SOURCES}
+        include/core/gfx/Vertex.hpp)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET golfgame PROPERTY CXX_STANDARD 20)
@@ -44,6 +45,13 @@ target_link_libraries(golfgame PRIVATE
         SFML::Audio
         SFML::System
     $<$<BOOL:${SFML_audio_FOUND}>:sfml-audio>
+)
+
+# Copy shader directory to output directory
+add_custom_command(TARGET golfgame POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/shader
+    $<TARGET_FILE_DIR:golfgame>/shader
 )
 
 # TODO: Add tests and install targets if needed.
