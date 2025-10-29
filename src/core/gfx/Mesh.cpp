@@ -17,7 +17,6 @@ bool Mesh::createQuadXY(ID3D11Device* dev, float w, float h, float z)
     const float hh = h * 0.5f;
 
 
-    // Facing -Z so the camera at (0,0,-3) looking +Z sees it
     VertexPNV v[4] = {
         { XMFLOAT3(-hw, -hh, z), XMFLOAT3(0, 0, -1), XMFLOAT2(0, 1) },
         { XMFLOAT3(-hw, hh, z), XMFLOAT3(0, 0, -1), XMFLOAT2(0, 0) },
@@ -46,29 +45,68 @@ bool Mesh::createQuadXY(ID3D11Device* dev, float w, float h, float z)
 }
 
 bool Mesh::createCube(ID3D11Device *dev, float h) {
+    // Define 8 unique vertices with proper normals and UVs for each face
+    // We need 24 vertices (4 per face * 6 faces) for proper normals per face
+    const VertexPNCT v[] = {
+        // Back face (Z-)
+        {{-h,-h,-h}, {0,0,-1}, {1,0,0,1}, {0,1}},
+        {{-h, h,-h}, {0,0,-1}, {1,0,0,1}, {0,0}},
+        {{ h, h,-h}, {0,0,-1}, {1,0,0,1}, {1,0}},
+        {{ h,-h,-h}, {0,0,-1}, {1,0,0,1}, {1,1}},
 
-    // 8 角点 + 每面独立颜色（这里直接给 8 顶点带颜色，简单起见）
-    const VertexPC v[] = {
-        {{-h,-h,-h},{1,0,0,1}}, {{-h, h,-h},{0,1,0,1}}, {{ h, h,-h},{0,0,1,1}}, {{ h,-h,-h},{1,1,0,1}}, // back (z-)
-        {{-h,-h, h},{1,0,1,1}}, {{-h, h, h},{0,1,1,1}}, {{ h, h, h},{1,1,1,1}}, {{ h,-h, h},{0.2f,0.6f,1,1}}, // front (z+)
+        // Front face (Z+)
+        {{-h,-h, h}, {0,0,1}, {1,0,1,1}, {1,1}},
+        {{-h, h, h}, {0,0,1}, {1,0,1,1}, {1,0}},
+        {{ h, h, h}, {0,0,1}, {1,0,1,1}, {0,0}},
+        {{ h,-h, h}, {0,0,1}, {1,0,1,1}, {0,1}},
+
+        // Left face (X-)
+        {{-h,-h, h}, {-1,0,0}, {1,1,1,1}, {0,1}},
+        {{-h, h, h}, {-1,0,0}, {1,1,1,1}, {0,0}},
+        {{-h, h,-h}, {-1,0,0}, {1,1,1,1}, {1,0}},
+        {{-h,-h,-h}, {-1,0,0}, {1,1,1,1}, {1,1}},
+
+        // Right face (X+)
+        {{ h,-h,-h}, {1,0,0}, {0,1,1,1}, {0,1}},
+        {{ h, h,-h}, {1,0,0}, {0,1,1,1}, {0,0}},
+        {{ h, h, h}, {1,0,0}, {0,1,1,1}, {1,0}},
+        {{ h,-h, h}, {1,0,0}, {0,1,1,1}, {1,1}},
+
+        // Top face (Y+)
+        {{-h, h,-h}, {0,1,0}, {1,1,1,1}, {0,1}},
+        {{-h, h, h}, {0,1,0}, {1,1,1,1}, {0,0}},
+        {{ h, h, h}, {0,1,0}, {1,1,1,1}, {1,0}},
+        {{ h, h,-h}, {0,1,0}, {1,1,1,1}, {1,1}},
+
+        // Bottom face (Y-)
+        {{-h,-h, h}, {0,-1,0}, {1,1,1,1}, {0,1}},
+        {{-h,-h,-h}, {0,-1,0}, {1,1,1,1}, {0,0}},
+        {{ h,-h,-h}, {0,-1,0}, {1,1,1,1}, {1,0}},
+        {{ h,-h, h}, {0,-1,0}, {1,1,1,1}, {1,1}},
     };
-    const uint16_t idx[] = {
-        // back face
-        0,1,2, 0,2,3,
-        // front face
-        4,6,5, 4,7,6,
-        // left
-        4,5,1, 4,1,0,
-        // right
-        3,2,6, 3,6,7,
-        // top
-        1,5,6, 1,6,2,
-        // bottom
-        4,0,3, 4,3,7
+
+   const uint16_t idx[] = {
+        // Back face (Z-) - clockwise from outside (camera view)
+        0,2,1, 0,3,2,
+        // Front face (Z+) - clockwise from outside
+        4,5,6, 4,6,7,
+        // Left face (X-) - clockwise from outside
+        8,10,9, 8,11,10,
+        // Right face (X+) - clockwise from outside
+        12,14,13, 12,15,14,
+        // Top face (Y+) - clockwise from outside
+        16,18,17, 16,19,18,
+        // Bottom face (Y-) - clockwise from outside
+        20,22,21, 20,23,22
     };
+
+
+
     m_indexCount = (UINT)std::size(idx);
+    m_stride = sizeof(VertexPNCT);
 
-    D3D11_BUFFER_DESC bd{}; D3D11_SUBRESOURCE_DATA sd{};
+    D3D11_BUFFER_DESC bd{};
+    D3D11_SUBRESOURCE_DATA sd{};
     bd.Usage = D3D11_USAGE_DEFAULT;
 
     bd.ByteWidth = (UINT)sizeof(v);
@@ -83,12 +121,3 @@ bool Mesh::createCube(ID3D11Device *dev, float h) {
 }
 
 
-void Mesh::draw(ID3D11DeviceContext* ctx) const
-{
-    UINT stride = m_stride, offset = 0;
-    ID3D11Buffer* vb = m_vb.Get();
-    ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
-    ctx->IASetIndexBuffer(m_ib.Get(), DXGI_FORMAT_R16_UINT, 0);
-    ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    ctx->DrawIndexed(m_indexCount, 0, 0);
-}

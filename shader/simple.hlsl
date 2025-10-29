@@ -1,20 +1,76 @@
 cbuffer WvpCB : register(b0)
 {
-    float4x4 gWVP; // world * view * proj
+    row_major float4x4 gWorld;     // World matrix
+    row_major float4x4 gWVP;       // World-View-Projection matrix
+}
+
+cbuffer LightCB : register(b1)
+{
+    float3 gLightDir;              // Directional light direction (normalized)
+    float  gPadding1;
+    float3 gLightColor;            // Light color
+    float  gPadding2;
+    float3 gAmbientColor;          // Ambient light color
+    float  gPadding3;
+}
+
+// Texture and sampler
+Texture2D gTexture : register(t0);
+SamplerState gSampler : register(s0);
+
+struct VSIn
+{
+    float3 pos    : POSITION;
+    float3 normal : NORMAL;
+    float4 col    : COLOR;
+    float2 uv     : TEXCOORD;
 };
 
-struct VSIn  { float3 pos : POSITION; float4 col : COLOR; };
-struct VSOut { float4 svpos : SV_Position; float4 col : COLOR; };
+struct VSOut
+{
+    float4 svpos     : SV_Position;
+    float3 worldNorm : NORMAL;
+    float4 col       : COLOR;
+    float2 uv        : TEXCOORD;
+};
 
 VSOut VSMain(VSIn i)
 {
     VSOut o;
-    o.svpos = mul(gWVP, float4(i.pos, 1));
-    o.col   = i.col;
+
+    // Transform position to clip space
+    o.svpos = mul(float4(i.pos, 1), gWVP);
+
+    // Transform normal to world space (assume uniform scaling, otherwise use inverse-transpose)
+    o.worldNorm = mul(float4(i.normal, 0), gWorld).xyz;
+
+    // Pass through color and UV
+    o.col = i.col;
+    o.uv = i.uv;
+
     return o;
 }
 
 float4 PSMain(VSOut i) : SV_Target
 {
-    return i.col;
+    // Normalize the interpolated normal
+    float3 N = normalize(i.worldNorm);
+
+    // Light direction (pointing towards light)
+    float3 L = -gLightDir;
+
+    // Calculate diffuse lighting (Lambert)
+    float diffuseFactor = max(dot(N, L), 0.0f);
+    float3 diffuse = gLightColor * diffuseFactor;
+
+    // Combine ambient and diffuse
+    float3 lighting = gAmbientColor + diffuse;
+
+    // Sample texture
+    float4 texColor = gTexture.Sample(gSampler, i.uv);
+
+    // Final color = lighting * texture * vertex color
+    float4 finalColor = float4(lighting, 1.0f) * texColor * i.col;
+
+    return finalColor;
 }

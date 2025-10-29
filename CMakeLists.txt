@@ -21,7 +21,10 @@ project ("golfgame")
 include_directories(include)
 
 # Find SFML package
-find_package(SFML COMPONENTS Network Graphics Window Audio System CONFIG REQUIRED)
+find_package(SFML COMPONENTS Network Graphics Window CONFIG REQUIRED)
+
+# Find DirectXTex package
+find_package(directxtex CONFIG REQUIRED)
 
 # Collect header files
 file(GLOB_RECURSE HEADERS "include/**/*.hpp" "include/**/*.h")
@@ -30,11 +33,15 @@ file(GLOB_RECURSE HEADERS "include/**/*.hpp" "include/**/*.h")
 file(GLOB_RECURSE SOURCES "src/**/*.cpp" "src/**/*.c")
 
 # Add source to this project's executable.
-add_executable (golfgame "golfgame.cpp" "golfgame.h" ${HEADERS} ${SOURCES}
-        include/core/gfx/Vertex.hpp)
+add_executable (golfgame "golfgame.cpp" "golfgame.h" ${HEADERS} ${SOURCES})
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET golfgame PROPERTY CXX_STANDARD 20)
+endif()
+
+# Enable UTF-8 support for MSVC
+if(MSVC)
+  add_compile_options(/utf-8)
 endif()
 
 # Link SFML libraries (this also includes SFML headers)
@@ -42,9 +49,7 @@ target_link_libraries(golfgame PRIVATE
         SFML::Network
         SFML::Graphics
         SFML::Window
-        SFML::Audio
-        SFML::System
-    $<$<BOOL:${SFML_audio_FOUND}>:sfml-audio>
+        Microsoft::DirectXTex
 )
 
 # Copy shader directory to output directory
