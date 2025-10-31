@@ -13,8 +13,8 @@ public:
     void beginFrame(float r=0.1f,float g=0.1f,float b=0.15f,float a=1.0f);
     void endFrame();
 
-    // Draw mesh with transform matrix
-    void drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform);
+    // Draw mesh with transform matrix and texture
+    void drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, const Texture& texture);
 
     // Camera access
     Camera& getCamera() { return m_camera; }
@@ -22,6 +22,9 @@ public:
 
     // Temporary accessor for cube mesh (for demo purposes)
     const Mesh& getCubeMesh() const { return m_cube; }
+
+    // Device accessor for resource initialization
+    ID3D11Device* device() const { return m_dev.device(); }
 
 private:
     struct TransformCB {

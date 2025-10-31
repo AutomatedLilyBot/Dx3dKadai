@@ -33,7 +33,9 @@ file(GLOB_RECURSE HEADERS "include/**/*.hpp" "include/**/*.h")
 file(GLOB_RECURSE SOURCES "src/**/*.cpp" "src/**/*.c")
 
 # Add source to this project's executable.
-add_executable (golfgame "golfgame.cpp" "golfgame.h" ${HEADERS} ${SOURCES})
+add_executable (golfgame "golfgame.cpp" "golfgame.h" ${HEADERS} ${SOURCES}
+        src/game/entity/Cube.cpp
+        include/game/entity/Cube.hpp)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET golfgame PROPERTY CXX_STANDARD 20)
@@ -59,4 +61,10 @@ add_custom_command(TARGET golfgame POST_BUILD
     $<TARGET_FILE_DIR:golfgame>/shader
 )
 
-# TODO: Add tests and install targets if needed.
+
+# Copy asset directory to output directory so runtime can load textures
+add_custom_command(TARGET golfgame POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/asset
+    $<TARGET_FILE_DIR:golfgame>/asset
+)

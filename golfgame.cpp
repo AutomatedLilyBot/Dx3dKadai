@@ -3,10 +3,12 @@
 
 #include "golfgame.h"
 #include "core/gfx/Renderer.hpp"
+#include "game/entity/Cube.hpp"
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <windows.h>
 #include <chrono>
+#include <array>
 
 using namespace std;
 
@@ -19,6 +21,21 @@ int main()
 
 	Renderer renderer;
 	renderer.initialize(hwnd, 800, 600, true);
+
+	// Create 9 Cube entities arranged in a 3x3 grid around the origin
+	std::array<Cube, 9> cubes;
+	const float spacing = 3.0f; // equal spacing
+	{
+		// Initialize cubes and set their positions in a 3x3 grid (i: x, j: y)
+		int idx = 0;
+		for (int j = -1; j <= 1; ++j) {
+			for (int i = -1; i <= 1; ++i) {
+				Cube& c = cubes[idx++];
+				c.initialize(renderer.device());
+				c.setPosition(i * spacing, 0, j*spacing);
+			}
+		}
+	}
 
 	// 获取程序启动时间和帧时间
 	auto startTime = std::chrono::high_resolution_clock::now();
@@ -83,14 +100,12 @@ int main()
 			}
 		}
 
-		// 创建旋转变换矩阵
-		DirectX::XMMATRIX transform =
-			DirectX::XMMatrixScaling(2.0f, 2.0f, 2.0f) *
-			DirectX::XMMatrixRotationRollPitchYaw(time_in_seconds * 0.3f, time_in_seconds * 0.6f, 0) *
-			DirectX::XMMatrixTranslation(0.0f, 0.0f, 2.0f);
-
+		// 更新每个Cube的旋转并绘制 3x3 排布
 		renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
-		renderer.drawMesh(renderer.getCubeMesh(), transform);
+		for (auto& c : cubes) {
+			c.setRotation(time_in_seconds * 0.3f, time_in_seconds * 0.6f, 0.0f);
+			renderer.drawMesh(c.getMesh(), c.getTransform(), c.getTexture());
+		}
 		renderer.endFrame();
 	}
 

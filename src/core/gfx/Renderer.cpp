@@ -89,7 +89,7 @@ void Renderer::shutdown()
 void Renderer::beginFrame(float r,float g,float b,float a) { m_dev.clear(r,g,b,a); }
 void Renderer::endFrame() { m_dev.present(); }
 
-void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform)
+void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, const Texture& texture)
 {
     using namespace DirectX;
 
@@ -120,8 +120,8 @@ void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform)
     m_dev.context()->VSSetConstantBuffers(0, 2, cbs);
     m_dev.context()->PSSetConstantBuffers(0, 2, cbs);
 
-    // Bind texture and sampler
-    ID3D11ShaderResourceView* srv = m_defaultTexture.srv();
+    // Bind texture and sampler (prefer provided texture, fallback to default)
+    ID3D11ShaderResourceView* srv = texture.isValid() ? texture.srv() : m_defaultTexture.srv();
     m_dev.context()->PSSetShaderResources(0, 1, &srv);
     ID3D11SamplerState* samp = m_sampler.Get();
     m_dev.context()->PSSetSamplers(0, 1, &samp);
