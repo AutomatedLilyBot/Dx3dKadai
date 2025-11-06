@@ -30,12 +30,20 @@ bool Texture::loadFromFile(ID3D11Device* device, const std::wstring& filepath)
     }
 
     if (FAILED(hr)) {
+        wprintf(L"Failed to load image file, HRESULT: 0x%08X\n", hr);
         return false;
     }
+
+    wprintf(L"Image loaded: %dx%d, format: %d\n",
+            (int) metadata.width, (int) metadata.height, (int) metadata.format);
 
     // Create shader resource view
     hr = CreateShaderResourceView(device, image.GetImages(), image.GetImageCount(),
                                    metadata, m_srv.ReleaseAndGetAddressOf());
+
+    if (FAILED(hr)) {
+        wprintf(L"Failed to create SRV, HRESULT: 0x%08X\n", hr);
+    }
 
     return SUCCEEDED(hr);
 }

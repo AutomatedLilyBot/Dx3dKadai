@@ -4,13 +4,24 @@
 #include "golfgame.h"
 #include "core/gfx/Renderer.hpp"
 #include "game/entity/Cube.hpp"
+#include "core/gfx/ModelLoader.hpp"
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <windows.h>
 #include <chrono>
 #include <array>
+#include <DirectXMath.h>
 
 using namespace std;
+using namespace DirectX;
+
+static std::wstring ExeDirMain() {
+	wchar_t buf[MAX_PATH];
+	GetModuleFileNameW(nullptr, buf, MAX_PATH);
+	std::wstring s(buf);
+	auto p = s.find_last_of(L"\\/");
+	return (p == std::wstring::npos) ? L"." : s.substr(0, p);
+}
 
 int main()
 {
@@ -21,6 +32,13 @@ int main()
 
 	Renderer renderer;
 	renderer.initialize(hwnd, 800, 600, true);
+
+	// Try loading a model via ModelLoader
+	Mesh modelMesh;
+	Texture modelTex;
+	std::wstring modelPath = ExeDirMain() + L"\\asset\\ball.fbx";
+	bool modelLoaded = ModelLoader::LoadFBX(renderer.device(), modelPath, modelMesh, modelTex);
+	printf("Model loaded: %d\n", modelLoaded);
 
 	// Create 9 Cube entities arranged in a 3x3 grid around the origin
 	std::array<Cube, 9> cubes;
@@ -102,6 +120,16 @@ int main()
 
 		// 更新每个Cube的旋转并绘制 3x3 排布
 		renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
+
+		// Draw loaded model if available
+		// if (modelLoaded) {
+		// 	XMMATRIX S = XMMatrixScaling(10.0f, 10.0f, 10.0f);
+		// 	XMMATRIX R = XMMatrixRotationY(time_in_seconds * 0.5f);
+		// 	XMMATRIX T = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+		// 	XMMATRIX M = S * R * T;
+		// 	renderer.drawMesh(modelMesh, M, modelTex);
+		// }
+
 		for (auto& c : cubes) {
 			c.setRotation(time_in_seconds * 0.3f, time_in_seconds * 0.6f, 0.0f);
 			renderer.drawMesh(c.getMesh(), c.getTransform(), c.getTexture());

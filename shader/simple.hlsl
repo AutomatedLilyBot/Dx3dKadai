@@ -53,6 +53,15 @@ VSOut VSMain(VSIn i)
 
 float4 PSMain(VSOut i) : SV_Target
 {
+    // DEBUG: Visualize UV coordinates as colors
+    // return float4(i.uv.x, i.uv.y, 0, 1);
+
+    // Sample texture first for debugging
+    float4 texColor = gTexture.Sample(gSampler, i.uv);
+
+    // DEBUG: Return texture color only to test
+    // return texColor;
+
     // Normalize the interpolated normal
     float3 N = normalize(i.worldNorm);
 
@@ -65,9 +74,6 @@ float4 PSMain(VSOut i) : SV_Target
 
     // Combine ambient and diffuse
     float3 lighting = gAmbientColor + diffuse;
-
-    // Sample texture
-    float4 texColor = gTexture.Sample(gSampler, i.uv);
 
     // Final color = lighting * texture * vertex color
     float4 finalColor = float4(lighting, 1.0f) * texColor * i.col;

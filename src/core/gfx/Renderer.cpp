@@ -29,9 +29,13 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
     if (!m_dev.initialize(hwnd, w, h, debug)) return false;
 
     std::wstring hlsl = ExeDir() + L"\\shader\\simple.hlsl";
+    wprintf(L"Compiling shader from: %s\n", hlsl.c_str());
     if (!m_shader.compileFromFile(m_dev.device(), hlsl, kLayout, _countof(kLayout),
-                                  "VSMain", "PSMain"))
+                                  "VSMain", "PSMain")) {
+        wprintf(L"ERROR: Failed to compile shader!\n");
         return false;
+    }
+    wprintf(L"Shader compiled successfully\n");
 
     if (!m_cube.createCube(m_dev.device(), 1.0f)) return false;
 
@@ -59,7 +63,7 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
     D3D11_RASTERIZER_DESC rd{};
     rd.FillMode=D3D11_FILL_SOLID;
     rd.CullMode=D3D11_CULL_BACK;
-    rd.FrontCounterClockwise=TRUE;  // Counter-clockwise vertices are front-facing
+    rd.FrontCounterClockwise = FALSE; // Counter-clockwise vertices are front-facing
     //rd.DepthClipEnable=TRUE;
     m_dev.device()->CreateRasterizerState(&rd, rs.GetAddressOf());
     m_dev.context()->RSSetState(rs.Get());
@@ -122,6 +126,12 @@ void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, co
 
     // Bind texture and sampler (prefer provided texture, fallback to default)
     ID3D11ShaderResourceView* srv = texture.isValid() ? texture.srv() : m_defaultTexture.srv();
+    static int drawCount = 0;
+    if (drawCount < 10) {
+        // Print first 10 draws
+        printf("Draw #%d - Texture valid: %d, SRV: %p, Default SRV: %p\n",
+               drawCount++, texture.isValid(), texture.srv(), m_defaultTexture.srv());
+    }
     m_dev.context()->PSSetShaderResources(0, 1, &srv);
     ID3D11SamplerState* samp = m_sampler.Get();
     m_dev.context()->PSSetSamplers(0, 1, &samp);

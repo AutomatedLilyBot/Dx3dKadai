@@ -2,16 +2,19 @@
 #include <d3d11.h>
 #include <wrl/client.h>
 #include <DirectXMath.h>
+#include <vector>
 
 #include "Vertex.hpp"
-
-
-
 
 class Mesh {
 public:
     bool createQuadXY(ID3D11Device* dev, float w = 2.0f, float h = 2.0f, float z = 0.0f);
     bool createCube(ID3D11Device* dev, float half = 0.5f);
+
+    // Create from VertexPNCT data and 16-bit indices
+    bool createFromPNCT(ID3D11Device *dev,
+                        const std::vector<VertexPNCT> &vertices,
+                        const std::vector<uint16_t> &indices);
 
     // Getters for rendering data
     ID3D11Buffer* vertexBuffer() const { return m_vb.Get(); }
