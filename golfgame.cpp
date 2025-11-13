@@ -10,7 +10,12 @@
 #include <windows.h>
 #include <chrono>
 #include <array>
+#include <random>
 #include <DirectXMath.h>
+#include "core/gfx/Model.hpp"
+#include "game/world/Field.hpp"
+#include "game/entity/StaticEntity.hpp"
+#include "include/core/physics/Transform.hpp"
 
 using namespace std;
 using namespace DirectX;
@@ -33,27 +38,67 @@ int main()
 	Renderer renderer;
 	renderer.initialize(hwnd, 800, 600, true);
 
-	// Try loading a model via ModelLoader
-	Mesh modelMesh;
-	Texture modelTex;
-	std::wstring modelPath = ExeDirMain() + L"\\asset\\cube.fbx";
-	bool modelLoaded = ModelLoader::LoadFBX(renderer.device(), modelPath, modelMesh, modelTex);
-	printf("Model loaded: %d\n", modelLoaded);
+	// Create a Field and load models for platform and decoration
+	Field field;
+	Model cubeModel;
+	Model treeModel;
 
-	// Create 9 Cube entities arranged in a 3x3 grid around the origin
-	std::array<Cube, 9> cubes;
-	const float spacing = 3.0f; // equal spacing
-	{
-		// Initialize cubes and set their positions in a 3x3 grid (i: x, j: y)
-		int idx = 0;
-		for (int j = -1; j <= 1; ++j) {
-			for (int i = -1; i <= 1; ++i) {
-				Cube& c = cubes[idx++];
-				c.initialize(renderer.device());
-				c.setPosition(i * spacing, 0, j*spacing);
+	std::wstring cubePath = ExeDirMain() + L"\\asset\\cube.fbx";
+	std::wstring treePath = ExeDirMain() + L"\\asset\\tree.fbx";
+
+	bool cubeLoaded = ModelLoader::LoadFBX(renderer.device(), cubePath, cubeModel);
+	bool treeLoaded = ModelLoader::LoadFBX(renderer.device(), treePath, treeModel);
+	printf("Cube FBX loaded: %d, meshes=%zu, drawItems=%zu\n", cubeLoaded, cubeModel.meshes.size(),
+	       cubeModel.drawItems.size());
+	printf("Tree FBX loaded: %d, meshes=%zu, drawItems=%zu\n", treeLoaded, treeModel.meshes.size(),
+	       treeModel.drawItems.size());
+
+	// Build a 10x10 platform of cubes (grid in XZ plane)
+	if (cubeLoaded) {
+		const int W = 10, H = 10;
+		for (int z = 0; z < H; ++z) {
+			for (int x = 0; x < W; ++x) {
+				auto e = std::make_unique<StaticEntity>();
+				e->modelRef = &cubeModel; // lifetime note: cubeModel lives until main ends
+				e->transform.position = {(float) x * 0.01f, 0.0f, (float) z * 0.01f};
+				e->transform.scale = {1.0f, 1.0f, 1.0f};
+				e->transform.rotationEuler = {XM_PI / 2, 0, 0};
+				field.add(std::move(e));
 			}
 		}
 	}
+
+	// Randomly place several trees on top of the platform
+	if (treeLoaded) {
+		std::mt19937 rng(1337);
+		std::uniform_int_distribution<int> distXZ(-0, 0.1f);
+		std::uniform_real_distribution<float> jitter(-0.0f, 0.1f);
+		const int treeCount = 10; // a few decorative trees
+		for (int i = 0; i < treeCount; ++i) {
+			float x = (float) distXZ(rng) + jitter(rng);
+			float z = (float) distXZ(rng) + jitter(rng);
+			auto t = std::make_unique<StaticEntity>();
+			t->modelRef = &treeModel;
+			t->transform.rotationEuler = {0, 0, 0};
+			t->transform.position = {x, z, -0.01}; // slightly above the cubes
+			field.add(std::move(t));
+		}
+	}
+
+	// Create 9 Cube entities arranged in a 3x3 grid around the origin
+	// std::array<Cube, 9> cubes;
+	// const float spacing = 3.0f; // equal spacing
+	// {
+	// 	// Initialize cubes and set their positions in a 3x3 grid (i: x, j: y)
+	// 	int idx = 0;
+	// 	for (int j = -1; j <= 1; ++j) {
+	// 		for (int i = -1; i <= 1; ++i) {
+	// 			Cube& c = cubes[idx++];
+	// 			c.initialize(renderer.device());
+	// 			c.setPosition(i * spacing, 0, j*spacing);
+	// 		}
+	// 	}
+	// }
 
 	// 获取程序启动时间和帧时间
 	auto startTime = std::chrono::high_resolution_clock::now();
@@ -118,28 +163,21 @@ int main()
 			}
 		}
 
-		// 更新每个Cube的旋转并绘制 3x3 排布
-		renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
+        // Frame render
+        renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
 
-		// Draw loaded model if available
-		if (modelLoaded) {
-		 	XMMATRIX S = XMMatrixScaling(10.0f, 10.0f, 10.0f);
-		 	XMMATRIX R = XMMatrixRotationY(time_in_seconds * 0.5f);
-			XMMATRIX T = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
-		 	XMMATRIX M = S * R * T;
-		 	renderer.drawMesh(modelMesh, M, modelTex);
-		}
-
-		for (auto& c : cubes) {
-			c.setRotation(time_in_seconds * 0.3f, time_in_seconds * 0.6f, 0.0f);
-			renderer.drawMesh(c.getMesh(), c.getTransform(), c.getTexture());
+        // Render field by enumerating entities
+        for (const auto& e : field.entities()) {
+            if (e && e->model()) {
+	            renderer.draw(*e);
+            }
 		}
 
 		// Draw loaded model if available
 		// if (modelLoaded) {
 		// 	XMMATRIX S = XMMatrixScaling(10.0f, 10.0f, 10.0f);
 		//	XMMATRIX R = XMMatrixRotationY(time_in_seconds * 0.5f);
-		 //	XMMATRIX T = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+		//	XMMATRIX T = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
 		//	XMMATRIX M = S * R * T;
 		//	renderer.drawMesh(modelMesh, M, modelTex);
 		//}
