@@ -4,7 +4,11 @@
 #include "Mesh.hpp"
 #include "Texture.hpp"
 #include "Camera.hpp"
+#include "Model.hpp"
 #include <DirectXMath.h>
+
+// Forward declare to avoid heavy include in header
+struct IDrawable;
 
 class Renderer {
 public:
@@ -15,6 +19,12 @@ public:
 
     // Draw mesh with transform matrix and texture
     void drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, const Texture& texture);
+
+    // Draw a full model: iterate draw items, combine model transform with node transforms
+    void drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform);
+
+    // Draw via drawable interface (adapter)
+    void draw(const IDrawable &drawable);
 
     // Camera access
     Camera& getCamera() { return m_camera; }

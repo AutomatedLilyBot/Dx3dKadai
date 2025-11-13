@@ -1,5 +1,6 @@
 #include "core/gfx/Renderer.hpp"
 #include <string>
+#include "core/render/Drawable.hpp"
 using namespace DirectX;
 
 static const D3D11_INPUT_ELEMENT_DESC kLayout[] = {
@@ -92,6 +93,29 @@ void Renderer::shutdown()
 
 void Renderer::beginFrame(float r,float g,float b,float a) { m_dev.clear(r,g,b,a); }
 void Renderer::endFrame() { m_dev.present(); }
+
+void Renderer::drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform) {
+    // Iterate through draw items and render each sub-mesh with its material
+    for (const auto &di: model.drawItems) {
+        if (di.meshIndex >= model.meshes.size()) continue;
+        const auto &mg = model.meshes[di.meshIndex];
+        const Texture *tex = nullptr;
+        if (mg.materialIndex >= 0 && static_cast<size_t>(mg.materialIndex) < model.materials.size()) {
+            tex = &model.materials[mg.materialIndex].diffuse;
+        }
+        // Combine model transform with node-global transform
+        DirectX::XMMATRIX nodeM = DirectX::XMLoadFloat4x4(&di.nodeGlobal);
+        DirectX::XMMATRIX world = DirectX::XMMatrixMultiply(modelTransform, nodeM);
+        drawMesh(mg.mesh, world, tex ? *tex : m_defaultTexture);
+    }
+}
+
+void Renderer::draw(const IDrawable &drawable) {
+    const Model *m = drawable.model();
+    if (m) {
+        drawModel(*m, drawable.world());
+    }
+}
 
 void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, const Texture& texture)
 {
