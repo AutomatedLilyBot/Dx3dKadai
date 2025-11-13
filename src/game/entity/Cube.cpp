@@ -25,7 +25,7 @@ bool Cube::initialize(ID3D11Device* device)
 
     // Try to load a fixed texture from asset directory; fallback to white if not found
     std::wstring texPath = ExeDirCube() + L"\\asset\\block_field.png";
-    wprintf(L"Attempting to load texture from: %s\n", texPath.c_str());
+    //wprintf(L"Attempting to load texture from: %s\n", texPath.c_str());
     if (!m_texture.loadFromFile(device, texPath)) {
         wprintf(L"Failed to load texture, using white fallback\n");
         // Fallback to white texture if loading fails
@@ -33,7 +33,7 @@ bool Cube::initialize(ID3D11Device* device)
             return false;
         }
     } else {
-        wprintf(L"Texture loaded successfully!\n");
+        //wprintf(L"Texture loaded successfully!\n");
     }
 
     return true;

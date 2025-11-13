@@ -127,11 +127,11 @@ void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, co
     // Bind texture and sampler (prefer provided texture, fallback to default)
     ID3D11ShaderResourceView* srv = texture.isValid() ? texture.srv() : m_defaultTexture.srv();
     static int drawCount = 0;
-    if (drawCount < 10) {
+    /*if (drawCount < 10) {
         // Print first 10 draws
         printf("Draw #%d - Texture valid: %d, SRV: %p, Default SRV: %p\n",
                drawCount++, texture.isValid(), texture.srv(), m_defaultTexture.srv());
-    }
+    }*/
     m_dev.context()->PSSetShaderResources(0, 1, &srv);
     ID3D11SamplerState* samp = m_sampler.Get();
     m_dev.context()->PSSetSamplers(0, 1, &samp);
@@ -152,4 +152,7 @@ void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, co
     m_dev.context()->IASetIndexBuffer(mesh.indexBuffer(), DXGI_FORMAT_R16_UINT, 0);
     m_dev.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_dev.context()->DrawIndexed(mesh.indexCount(), 0, 0);
+
+    ID3D11ShaderResourceView* nullSRV[1] = { nullptr };
+    m_dev.context()->PSSetShaderResources(0, 1, nullSRV);
 }

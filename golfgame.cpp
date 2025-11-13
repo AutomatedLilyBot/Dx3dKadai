@@ -36,7 +36,7 @@ int main()
 	// Try loading a model via ModelLoader
 	Mesh modelMesh;
 	Texture modelTex;
-	std::wstring modelPath = ExeDirMain() + L"\\asset\\ball.fbx";
+	std::wstring modelPath = ExeDirMain() + L"\\asset\\cube.fbx";
 	bool modelLoaded = ModelLoader::LoadFBX(renderer.device(), modelPath, modelMesh, modelTex);
 	printf("Model loaded: %d\n", modelLoaded);
 
@@ -122,18 +122,29 @@ int main()
 		renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
 
 		// Draw loaded model if available
-		// if (modelLoaded) {
-		// 	XMMATRIX S = XMMatrixScaling(10.0f, 10.0f, 10.0f);
-		// 	XMMATRIX R = XMMatrixRotationY(time_in_seconds * 0.5f);
-		// 	XMMATRIX T = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
-		// 	XMMATRIX M = S * R * T;
-		// 	renderer.drawMesh(modelMesh, M, modelTex);
-		// }
+		if (modelLoaded) {
+		 	XMMATRIX S = XMMatrixScaling(10.0f, 10.0f, 10.0f);
+		 	XMMATRIX R = XMMatrixRotationY(time_in_seconds * 0.5f);
+			XMMATRIX T = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+		 	XMMATRIX M = S * R * T;
+		 	renderer.drawMesh(modelMesh, M, modelTex);
+		}
 
 		for (auto& c : cubes) {
 			c.setRotation(time_in_seconds * 0.3f, time_in_seconds * 0.6f, 0.0f);
 			renderer.drawMesh(c.getMesh(), c.getTransform(), c.getTexture());
 		}
+
+		// Draw loaded model if available
+		// if (modelLoaded) {
+		// 	XMMATRIX S = XMMatrixScaling(10.0f, 10.0f, 10.0f);
+		//	XMMATRIX R = XMMatrixRotationY(time_in_seconds * 0.5f);
+		 //	XMMATRIX T = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+		//	XMMATRIX M = S * R * T;
+		//	renderer.drawMesh(modelMesh, M, modelTex);
+		//}
+
+
 		renderer.endFrame();
 	}
 

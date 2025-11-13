@@ -10,9 +10,12 @@
 #undef min
 #undef max
 #include <algorithm>
+#include <cstring>
 
 // Assimp (headers are placed directly under external/assimp)
 #include <Importer.hpp>
+#include <iostream>
+#include <ostream>
 #include <scene.h>
 #include <postprocess.h>
 
@@ -123,20 +126,105 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
         if (AI_SUCCESS == mat->GetTexture(aiTextureType_DIFFUSE, 0, &texPath)) {
             // Handle embedded or external
             if (texPath.length > 0) {
-                const aiTexture *embedded = nullptr;
+                wprintf(L"Texture path is: %hs\n", texPath.data);
+
+                // Helper lambda to upload an aiTexture to GPU
+                auto loadAiTexture = [&](const aiTexture* tex) -> bool {
+                    if (!tex) return false;
+                    if (tex->mHeight == 0) {
+                        // Compressed texture data in tex->pcData with size tex->mWidth
+                        const void* bytes = reinterpret_cast<const void*>(tex->pcData);
+                        size_t size = static_cast<size_t>(tex->mWidth);
+                        const char* hint = tex->achFormatHint[0] ? tex->achFormatHint : nullptr;
+                        return outTexture.loadFromMemory(device, bytes, size, hint);
+                    } else {
+                        // Uncompressed raw pixels in aiTexel array (RGBA 8-bit)
+                        const uint32_t width = tex->mWidth;
+                        const uint32_t height = tex->mHeight;
+                        const size_t count = static_cast<size_t>(width) * static_cast<size_t>(height);
+                        std::vector<unsigned char> rgba;
+                        rgba.resize(count * 4);
+                        for (size_t i = 0; i < count; ++i) {
+                            const aiTexel& t = tex->pcData[i];
+                            rgba[i * 4 + 0] = t.r;
+                            rgba[i * 4 + 1] = t.g;
+                            rgba[i * 4 + 2] = t.b;
+                            rgba[i * 4 + 3] = t.a;
+                        }
+                        return outTexture.createFromRGBA(device, rgba.data(), width, height, width * 4);
+                    }
+                };
+
                 if (texPath.data[0] == '*') {
-                    // Embedded index like "*0" – for simplicity, skip and fallback
-                    textureLoaded = false;
+                    // Embedded texture like "*0"
+                    // parse index and fetch from scene->mTextures
+                    wprintf(L"Loading embedded texture by index...\n");
+                    int idx = 0;
+                    try {
+                        idx = std::stoi(std::string(texPath.C_Str() + 1));
+                    } catch (...) { idx = 0; }
+                    if (idx >= 0 && scene->mNumTextures > 0 && static_cast<unsigned int>(idx) < scene->mNumTextures) {
+                        textureLoaded = loadAiTexture(scene->mTextures[idx]);
+                    }
                 } else {
-                    std::wstring modelDir = GetDirectoryOf(filepath);
-                    std::wstring texRel = UTF8ToWString(std::string(texPath.C_Str()));
-                    std::wstring texFull = CombinePath(modelDir, texRel);
-                    if (outTexture.loadFromFile(device, texFull)) {
-                        textureLoaded = true;
+                    // Named embedded texture path like "model.fbm/xxx.png"
+                    // 1) Try matching full path against aiTexture::mFilename
+                    if (!textureLoaded && scene->mNumTextures > 0) {
+                        std::string wanted = std::string(texPath.C_Str());
+                        for (unsigned int i = 0; i < scene->mNumTextures && !textureLoaded; ++i) {
+                            const aiTexture* t = scene->mTextures[i];
+                            if (!t) continue;
+                            if (t->mFilename.length > 0) {
+                                std::string tfull = t->mFilename.C_Str();
+                                if (tfull == wanted) {
+                                    wprintf(L"Loading embedded texture by full path match...\n");
+                                    textureLoaded = loadAiTexture(t);
+                                }
+                            }
+                        }
+                    }
+
+                    // 2) Try basename match against scene->mTextures
+                    if (!textureLoaded && scene->mNumTextures > 0) {
+                        std::string full = std::string(texPath.C_Str());
+                        size_t slash = full.find_last_of("/\\");
+                        std::string base = (slash == std::string::npos) ? full : full.substr(slash + 1);
+                        for (unsigned int i = 0; i < scene->mNumTextures && !textureLoaded; ++i) {
+                            const aiTexture* t = scene->mTextures[i];
+                            if (!t) continue;
+                            if (t->mFilename.length > 0) {
+                                std::string tf = t->mFilename.C_Str();
+                                size_t s2 = tf.find_last_of("/\\");
+                                std::string tbase = (s2 == std::string::npos) ? tf : tf.substr(s2 + 1);
+#ifdef _WIN32
+                                if (_stricmp(tbase.c_str(), base.c_str()) == 0)
+#else
+                                if (strcasecmp(tbase.c_str(), base.c_str()) == 0)
+#endif
+                                {
+                                    wprintf(L"Loading embedded texture by basename match...\n");
+                                    textureLoaded = loadAiTexture(t);
+                                }
+                            }
+                        }
+                    }
+
+                    // 3) Fallback to external disk file path
+                    if (!textureLoaded) {
+                        wprintf(L"Loading external texture from disk...\n");
+                        std::wstring modelDir = GetDirectoryOf(filepath);
+                        std::wstring texRel = UTF8ToWString(std::string(texPath.C_Str()));
+                        std::wstring texFull = CombinePath(modelDir, texRel);
+                        if (outTexture.loadFromFile(device, texFull)) {
+                            textureLoaded = true;
+                        }
                     }
                 }
             }
         }
+    }
+    else {
+        wprintf(L"Model has no texture.");
     }
 
     if (!textureLoaded) {
