@@ -60,9 +60,9 @@ int main()
 			for (int x = 0; x < W; ++x) {
 				auto e = std::make_unique<StaticEntity>();
 				e->modelRef = &cubeModel; // lifetime note: cubeModel lives until main ends
-				e->transform.position = {(float) x * 0.01f, 0.0f, (float) z * 0.01f};
-				e->transform.scale = {1.0f, 1.0f, 1.0f};
-				e->transform.rotationEuler = {XM_PI / 2, 0, 0};
+				e->transform.position = {(float) x * 0.1f, 0.0f, (float) z * 0.1f};
+				e->transform.scale = {10.0f, 10.0f, 10.0f};
+				e->transform.rotationEuler = {XM_PIDIV2, 0, 0};
 				field.add(std::move(e));
 			}
 		}
@@ -79,8 +79,9 @@ int main()
 			float z = (float) distXZ(rng) + jitter(rng);
 			auto t = std::make_unique<StaticEntity>();
 			t->modelRef = &treeModel;
-			t->transform.rotationEuler = {0, 0, 0};
-			t->transform.position = {x, z, -0.01}; // slightly above the cubes
+			t->transform.scale = {10.0f, 10.0f, 10.0f};
+			t->transform.rotationEuler = {XM_PIDIV2, 0, 0};
+			t->transform.position = {x, 0, z}; // slightly above the cubes
 			field.add(std::move(t));
 		}
 	}

@@ -71,14 +71,10 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
 
     Assimp::Importer importer;
     unsigned int flags = 0
-                         | aiProcess_Triangulate
-                         | aiProcess_JoinIdenticalVertices
-                         | aiProcess_GenSmoothNormals // Changed from GenNormals for consistent smooth normals
-                         | aiProcess_ImproveCacheLocality
-                         | aiProcess_SortByPType
+                         | aiProcessPreset_TargetRealtime_MaxQuality
+                         | aiProcess_PreTransformVertices
                          | aiProcess_ConvertToLeftHanded
-                         | aiProcess_FlipUVs
-                         | aiProcess_FixInfacingNormals; // Fix inverted normals
+                         | aiProcess_GlobalScale;
 
     const std::string path8 = WStringToUTF8(filepath);
     const aiScene *scene = importer.ReadFile(path8.c_str(), flags);
@@ -142,13 +138,13 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                 wprintf(L"Texture path is: %hs\n", texPath.data);
 
                 // Helper lambda to upload an aiTexture to GPU
-                auto loadAiTexture = [&](const aiTexture* tex) -> bool {
+                auto loadAiTexture = [&](const aiTexture *tex) -> bool {
                     if (!tex) return false;
                     if (tex->mHeight == 0) {
                         // Compressed texture data in tex->pcData with size tex->mWidth
-                        const void* bytes = reinterpret_cast<const void*>(tex->pcData);
+                        const void *bytes = reinterpret_cast<const void *>(tex->pcData);
                         size_t size = static_cast<size_t>(tex->mWidth);
-                        const char* hint = tex->achFormatHint[0] ? tex->achFormatHint : nullptr;
+                        const char *hint = tex->achFormatHint[0] ? tex->achFormatHint : nullptr;
                         return outTexture.loadFromMemory(device, bytes, size, hint);
                     } else {
                         // Uncompressed raw pixels in aiTexel array (RGBA 8-bit)
@@ -158,7 +154,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                         std::vector<unsigned char> rgba;
                         rgba.resize(count * 4);
                         for (size_t i = 0; i < count; ++i) {
-                            const aiTexel& t = tex->pcData[i];
+                            const aiTexel &t = tex->pcData[i];
                             rgba[i * 4 + 0] = t.r;
                             rgba[i * 4 + 1] = t.g;
                             rgba[i * 4 + 2] = t.b;
@@ -185,7 +181,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                     if (!textureLoaded && scene->mNumTextures > 0) {
                         std::string wanted = std::string(texPath.C_Str());
                         for (unsigned int i = 0; i < scene->mNumTextures && !textureLoaded; ++i) {
-                            const aiTexture* t = scene->mTextures[i];
+                            const aiTexture *t = scene->mTextures[i];
                             if (!t) continue;
                             if (t->mFilename.length > 0) {
                                 std::string tfull = t->mFilename.C_Str();
@@ -203,7 +199,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                         size_t slash = full.find_last_of("/\\");
                         std::string base = (slash == std::string::npos) ? full : full.substr(slash + 1);
                         for (unsigned int i = 0; i < scene->mNumTextures && !textureLoaded; ++i) {
-                            const aiTexture* t = scene->mTextures[i];
+                            const aiTexture *t = scene->mTextures[i];
                             if (!t) continue;
                             if (t->mFilename.length > 0) {
                                 std::string tf = t->mFilename.C_Str();
@@ -235,8 +231,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                 }
             }
         }
-    }
-    else {
+    } else {
         wprintf(L"Model has no texture.");
     }
 

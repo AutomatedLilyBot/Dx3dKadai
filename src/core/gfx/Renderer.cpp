@@ -105,7 +105,8 @@ void Renderer::drawModel(const Model &model, const DirectX::XMMATRIX &modelTrans
         }
         // Combine model transform with node-global transform
         DirectX::XMMATRIX nodeM = DirectX::XMLoadFloat4x4(&di.nodeGlobal);
-        DirectX::XMMATRIX world = DirectX::XMMatrixMultiply(modelTransform, nodeM);
+        DirectX::XMMATRIX world = modelTransform;
+        //DirectX::XMMATRIX world = modelTransform;
         drawMesh(mg.mesh, world, tex ? *tex : m_defaultTexture);
     }
 }
