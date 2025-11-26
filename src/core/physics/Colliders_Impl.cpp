@@ -1,0 +1,311 @@
+#include "Collider.hpp"
+#include "Transform.hpp"
+#include <cmath>
+#include <algorithm>
+
+using namespace DirectX;
+
+static inline bool NearlyEqual(float a, float b, float eps) {
+    return std::fabs(a - b) <= eps;
+}
+
+static XMMATRIX MakeWorld(const XMFLOAT3 &pos, const XMFLOAT3 &euler, const XMFLOAT3 &scl) {
+    XMMATRIX S = XMMatrixScaling(scl.x, scl.y, scl.z);
+    XMMATRIX R = XMMatrixRotationRollPitchYaw(euler.x, euler.y, euler.z);
+    XMMATRIX T = XMMatrixTranslation(pos.x, pos.y, pos.z);
+    return S * R * T;
+}
+
+namespace {
+    class SphereColliderImpl final : public SphereCollider {
+    public:
+        explicit SphereColliderImpl(float rLocal)
+            : m_radiusLocal(std::max(0.0f, rLocal)) {
+        }
+
+        ColliderType kind() const override { return ColliderType::Sphere; }
+
+        bool setPosition(const XMFLOAT3 &pos) override {
+            m_pos = pos;
+            return true;
+        }
+
+        bool setRotationEuler(const XMFLOAT3 &rotEuler) override {
+            m_rot = rotEuler;
+            return true;
+        }
+
+        bool setScale(const XMFLOAT3 &scale) override {
+            float eps = GetPhysicsConfig().epsilon;
+            if (!NearlyEqual(scale.x, scale.y, eps) || !NearlyEqual(scale.x, scale.z, eps)) return false;
+            if (scale.x <= 0 || scale.y <= 0 || scale.z <= 0) return false;
+            m_scl = scale;
+            return true;
+        }
+
+        XMFLOAT3 position() const override { return m_pos; }
+        XMFLOAT3 rotationEuler() const override { return m_rot; }
+        XMFLOAT3 scale() const override { return m_scl; }
+
+        XMMATRIX world() const override { return MakeWorld(m_pos, m_rot, m_scl); }
+        bool updateDerived() override { return true; }
+
+        Aabb aabb() const override {
+            XMFLOAT3 c = centerWorld();
+            float r = radiusWorld();
+            return {XMFLOAT3{c.x - r, c.y - r, c.z - r}, XMFLOAT3{c.x + r, c.y + r, c.z + r}};
+        }
+
+        void setDebugEnabled(bool enabled) override { m_dbgEnabled = enabled; }
+        bool debugEnabled() const override { return m_dbgEnabled; }
+        void setDebugColor(const XMFLOAT4 &rgba) override { m_dbgColor = rgba; }
+        XMFLOAT4 debugColor() const override { return m_dbgColor; }
+
+        bool setOwnerOffset(const XMFLOAT3 &offset) override {
+            m_ownerOffset = offset;
+            return true;
+        }
+
+        XMFLOAT3 ownerOffset() const override { return m_ownerOffset; }
+
+        // Sphere specifics
+        float radiusLocal() const override { return m_radiusLocal; }
+        float radiusWorld() const override { return m_radiusLocal * m_scl.x; }
+        XMFLOAT3 centerWorld() const override { return m_pos; }
+
+    private:
+        XMFLOAT3 m_pos{0, 0, 0};
+        XMFLOAT3 m_rot{0, 0, 0};
+        XMFLOAT3 m_scl{1, 1, 1};
+        float m_radiusLocal{0};
+        bool m_dbgEnabled{false};
+        XMFLOAT4 m_dbgColor{0, 0.5f, 1, 1};
+        XMFLOAT3 m_ownerOffset{0, 0, 0};
+    };
+
+    class ObbColliderImpl final : public ObbCollider {
+    public:
+        explicit ObbColliderImpl(const XMFLOAT3 &heLocal) : m_halfLocal(heLocal) {
+        }
+
+        ColliderType kind() const override { return ColliderType::Obb; }
+
+        bool setPosition(const XMFLOAT3 &pos) override {
+            m_pos = pos;
+            return true;
+        }
+
+        bool setRotationEuler(const XMFLOAT3 &rotEuler) override {
+            m_rot = rotEuler;
+            return true;
+        }
+
+        bool setScale(const XMFLOAT3 &scale) override {
+            if (scale.x <= 0 || scale.y <= 0 || scale.z <= 0) return false;
+            m_scl = scale;
+            return true;
+        }
+
+        XMFLOAT3 position() const override { return m_pos; }
+        XMFLOAT3 rotationEuler() const override { return m_rot; }
+        XMFLOAT3 scale() const override { return m_scl; }
+
+        XMMATRIX world() const override { return MakeWorld(m_pos, m_rot, m_scl); }
+        bool updateDerived() override { return true; }
+
+        Aabb aabb() const override {
+            // Use centerW and axesW with halfExtentsW to compute world-space AABB
+            XMFLOAT3 center = centerWorld();
+            XMFLOAT3 heW = halfExtentsWorld();
+            XMFLOAT3 axes[3];
+            axesWorld(axes);
+            // extents along world axes
+            XMFLOAT3 e{};
+            e.x = std::fabs(axes[0].x) * heW.x + std::fabs(axes[1].x) * heW.y + std::fabs(axes[2].x) * heW.z;
+            e.y = std::fabs(axes[0].y) * heW.x + std::fabs(axes[1].y) * heW.y + std::fabs(axes[2].y) * heW.z;
+            e.z = std::fabs(axes[0].z) * heW.x + std::fabs(axes[1].z) * heW.y + std::fabs(axes[2].z) * heW.z;
+            return {
+                XMFLOAT3{center.x - e.x, center.y - e.y, center.z - e.z},
+                XMFLOAT3{center.x + e.x, center.y + e.y, center.z + e.z}
+            };
+        }
+
+        void setDebugEnabled(bool enabled) override { m_dbgEnabled = enabled; }
+        bool debugEnabled() const override { return m_dbgEnabled; }
+        void setDebugColor(const XMFLOAT4 &rgba) override { m_dbgColor = rgba; }
+        XMFLOAT4 debugColor() const override { return m_dbgColor; }
+
+        bool setOwnerOffset(const XMFLOAT3 &offset) override {
+            m_ownerOffset = offset;
+            return true;
+        }
+
+        XMFLOAT3 ownerOffset() const override { return m_ownerOffset; }
+
+        // OBB specifics
+        XMFLOAT3 centerWorld() const override { return m_pos; }
+
+        void axesWorld(XMFLOAT3 outAxes[3]) const override {
+            XMMATRIX R = XMMatrixRotationRollPitchYaw(m_rot.x, m_rot.y, m_rot.z);
+            // Transform unit basis to get world-space orientation (ignoring scale and translation)
+            XMVECTOR x = XMVector3TransformNormal(XMVectorSet(1, 0, 0, 0), R);
+            XMVECTOR y = XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), R);
+            XMVECTOR z = XMVector3TransformNormal(XMVectorSet(0, 0, 1, 0), R);
+            XMStoreFloat3(&outAxes[0], XMVector3Normalize(x));
+            XMStoreFloat3(&outAxes[1], XMVector3Normalize(y));
+            XMStoreFloat3(&outAxes[2], XMVector3Normalize(z));
+        }
+
+        XMFLOAT3 halfExtentsWorld() const override {
+            return XMFLOAT3{
+                std::fabs(m_scl.x) * m_halfLocal.x,
+                std::fabs(m_scl.y) * m_halfLocal.y,
+                std::fabs(m_scl.z) * m_halfLocal.z
+            };
+        }
+
+    private:
+        XMFLOAT3 m_pos{0, 0, 0};
+        XMFLOAT3 m_rot{0, 0, 0};
+        XMFLOAT3 m_scl{1, 1, 1};
+        XMFLOAT3 m_halfLocal{0.5f, 0.5f, 0.5f};
+        bool m_dbgEnabled{false};
+        XMFLOAT4 m_dbgColor{0, 1, 0, 1};
+        XMFLOAT3 m_ownerOffset{0, 0, 0};
+    };
+
+    class CapsuleColliderImpl final : public CapsuleCollider {
+    public:
+        CapsuleColliderImpl(const XMFLOAT3 &p0Local, const XMFLOAT3 &p1Local, float radiusLocal)
+            : m_p0Local(p0Local), m_p1Local(p1Local), m_radiusLocal(std::max(0.0f, radiusLocal)) {
+        }
+
+        ColliderType kind() const override { return ColliderType::Capsule; }
+
+        bool setPosition(const XMFLOAT3 &pos) override {
+            m_pos = pos;
+            return true;
+        }
+
+        bool setRotationEuler(const XMFLOAT3 &rotEuler) override {
+            m_rot = rotEuler;
+            return true;
+        }
+
+        bool setScale(const XMFLOAT3 &scale) override {
+            if (scale.x <= 0 || scale.y <= 0 || scale.z <= 0) return false;
+            // 约束：仅允许沿长轴自由缩放，半径方向必须等比
+            const float eps = GetPhysicsConfig().epsilon;
+            XMFLOAT3 axis = localAxisUnit();
+            // 与坐标轴对齐的阈值：|dot| 接近 1 视为对齐
+            float ax = std::fabs(axis.x), ay = std::fabs(axis.y), az = std::fabs(axis.z);
+            if (ax >= ay && ax >= az) {
+                // 认为与X轴对齐：要求 y==z
+                if (!NearlyEqual(scale.y, scale.z, eps)) return false;
+            } else if (ay >= ax && ay >= az) {
+                // 与Y轴对齐：要求 x==z
+                if (!NearlyEqual(scale.x, scale.z, eps)) return false;
+            } else {
+                // 与Z轴对齐：要求 x==y
+                if (!NearlyEqual(scale.x, scale.y, eps)) return false;
+            }
+            m_scl = scale;
+            return true;
+        }
+
+        XMFLOAT3 position() const override { return m_pos; }
+        XMFLOAT3 rotationEuler() const override { return m_rot; }
+        XMFLOAT3 scale() const override { return m_scl; }
+
+        XMMATRIX world() const override { return MakeWorld(m_pos, m_rot, m_scl); }
+        bool updateDerived() override { return true; }
+
+        Aabb aabb() const override {
+            auto seg = segmentWorld();
+            XMFLOAT3 p0 = seg.first, p1 = seg.second;
+            float r = radiusWorld();
+            XMFLOAT3 mn{std::min(p0.x, p1.x) - r, std::min(p0.y, p1.y) - r, std::min(p0.z, p1.z) - r};
+            XMFLOAT3 mx{std::max(p0.x, p1.x) + r, std::max(p0.y, p1.y) + r, std::max(p0.z, p1.z) + r};
+            return {mn, mx};
+        }
+
+        void setDebugEnabled(bool enabled) override { m_dbgEnabled = enabled; }
+        bool debugEnabled() const override { return m_dbgEnabled; }
+        void setDebugColor(const XMFLOAT4 &rgba) override { m_dbgColor = rgba; }
+        XMFLOAT4 debugColor() const override { return m_dbgColor; }
+
+        bool setOwnerOffset(const XMFLOAT3 &offset) override {
+            m_ownerOffset = offset;
+            return true;
+        }
+
+        XMFLOAT3 ownerOffset() const override { return m_ownerOffset; }
+
+        // Capsule specifics
+        std::pair<XMFLOAT3, XMFLOAT3> segmentWorld() const override {
+            XMMATRIX S = XMMatrixScaling(m_scl.x, m_scl.y, m_scl.z);
+            XMMATRIX R = XMMatrixRotationRollPitchYaw(m_rot.x, m_rot.y, m_rot.z);
+            XMMATRIX T = XMMatrixTranslation(m_pos.x, m_pos.y, m_pos.z);
+            XMMATRIX M = S * R * T;
+            XMVECTOR p0 = XMVectorSet(m_p0Local.x, m_p0Local.y, m_p0Local.z, 1.0f);
+            XMVECTOR p1 = XMVectorSet(m_p1Local.x, m_p1Local.y, m_p1Local.z, 1.0f);
+            p0 = XMVector3TransformCoord(p0, M);
+            p1 = XMVector3TransformCoord(p1, M);
+            XMFLOAT3 o0{}, o1{};
+            XMStoreFloat3(&o0, p0);
+            XMStoreFloat3(&o1, p1);
+            return {o0, o1};
+        }
+
+        float radiusWorld() const override {
+            // 选择半径方向缩放（与长轴正交的等比尺度）
+            XMFLOAT3 axis = localAxisUnit();
+            float ax = std::fabs(axis.x), ay = std::fabs(axis.y), az = std::fabs(axis.z);
+            float rScale = m_scl.x; // default
+            if (ax >= ay && ax >= az) {
+                // long axis ~ X, radial uses Y/Z (相等已在 setScale 校验)
+                rScale = m_scl.y; // == m_scl.z
+            } else if (ay >= ax && ay >= az) {
+                rScale = m_scl.x; // == m_scl.z
+            } else {
+                rScale = m_scl.x; // == m_scl.y
+            }
+            return m_radiusLocal * rScale;
+        }
+
+    private:
+        XMFLOAT3 localAxisUnit() const {
+            XMVECTOR p0 = XMVectorSet(m_p0Local.x, m_p0Local.y, m_p0Local.z, 0);
+            XMVECTOR p1 = XMVectorSet(m_p1Local.x, m_p1Local.y, m_p1Local.z, 0);
+            XMVECTOR d = XMVectorSubtract(p1, p0);
+            d = XMVector3Normalize(d);
+            XMFLOAT3 u{};
+            XMStoreFloat3(&u, d);
+            return u;
+        }
+
+        XMFLOAT3 m_pos{0, 0, 0};
+        XMFLOAT3 m_rot{0, 0, 0};
+        XMFLOAT3 m_scl{1, 1, 1};
+        XMFLOAT3 m_p0Local{0, -0.5f, 0};
+        XMFLOAT3 m_p1Local{0, 0.5f, 0};
+        float m_radiusLocal{0.5f};
+        bool m_dbgEnabled{false};
+        XMFLOAT4 m_dbgColor{1, 0.5f, 0, 1};
+        XMFLOAT3 m_ownerOffset{0, 0, 0};
+    };
+} // namespace
+
+// ---- 工厂函数 ----
+std::unique_ptr<SphereCollider> MakeSphereCollider(float radiusLocal) {
+    return std::make_unique<SphereColliderImpl>(radiusLocal);
+}
+
+std::unique_ptr<ObbCollider> MakeObbCollider(const XMFLOAT3 &halfExtentsLocal) {
+    return std::make_unique<ObbColliderImpl>(halfExtentsLocal);
+}
+
+std::unique_ptr<CapsuleCollider> MakeCapsuleCollider(const XMFLOAT3 &p0Local, const XMFLOAT3 &p1Local,
+                                                     float radiusLocal) {
+    return std::make_unique<CapsuleColliderImpl>(p0Local, p1Local, radiusLocal);
+}

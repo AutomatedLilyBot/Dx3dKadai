@@ -1,14 +1,12 @@
-#include "core/gfx/Camera.hpp"
+#include "Camera.hpp"
 
 using namespace DirectX;
 
-Camera::Camera()
-{
+Camera::Camera() {
     updateVectors();
 }
 
-void Camera::processKeyboard(bool forward, bool backward, bool left, bool right, bool up, bool down, float deltaTime)
-{
+void Camera::processKeyboard(bool forward, bool backward, bool left, bool right, bool up, bool down, float deltaTime) {
     float velocity = m_moveSpeed * deltaTime;
 
     XMVECTOR pos = XMLoadFloat3(&m_position);
@@ -16,18 +14,17 @@ void Camera::processKeyboard(bool forward, bool backward, bool left, bool right,
     XMVECTOR rgt = XMLoadFloat3(&m_right);
     XMVECTOR upVec = XMLoadFloat3(&m_up);
 
-    if (forward)  pos = XMVectorAdd(pos, XMVectorScale(fwd, velocity));
+    if (forward) pos = XMVectorAdd(pos, XMVectorScale(fwd, velocity));
     if (backward) pos = XMVectorSubtract(pos, XMVectorScale(fwd, velocity));
-    if (right)    pos = XMVectorAdd(pos, XMVectorScale(rgt, velocity));
-    if (left)     pos = XMVectorSubtract(pos, XMVectorScale(rgt, velocity));
-    if (up)       pos = XMVectorAdd(pos, XMVectorScale(upVec, velocity));
-    if (down)     pos = XMVectorSubtract(pos, XMVectorScale(upVec, velocity));
+    if (right) pos = XMVectorAdd(pos, XMVectorScale(rgt, velocity));
+    if (left) pos = XMVectorSubtract(pos, XMVectorScale(rgt, velocity));
+    if (up) pos = XMVectorAdd(pos, XMVectorScale(upVec, velocity));
+    if (down) pos = XMVectorSubtract(pos, XMVectorScale(upVec, velocity));
 
     XMStoreFloat3(&m_position, pos);
 }
 
-void Camera::processMouseMove(float deltaX, float deltaY, float sensitivity)
-{
+void Camera::processMouseMove(float deltaX, float deltaY, float sensitivity) {
     m_yaw += deltaX * sensitivity;
     m_pitch += deltaY * sensitivity;
 
@@ -39,15 +36,13 @@ void Camera::processMouseMove(float deltaX, float deltaY, float sensitivity)
     updateVectors();
 }
 
-void Camera::processMouseScroll(float delta)
-{
+void Camera::processMouseScroll(float delta) {
     m_moveSpeed += delta * 0.5f;
     if (m_moveSpeed < 0.5f) m_moveSpeed = 0.5f;
     if (m_moveSpeed > 50.0f) m_moveSpeed = 50.0f;
 }
 
-void Camera::updateVectors()
-{
+void Camera::updateVectors() {
     // Calculate forward vector from yaw and pitch
     // Yaw=0 looks at +Z, Yaw=90° looks at +X
     XMFLOAT3 forward;
@@ -68,8 +63,7 @@ void Camera::updateVectors()
     XMStoreFloat3(&m_up, up);
 }
 
-XMMATRIX Camera::getViewMatrix() const
-{
+XMMATRIX Camera::getViewMatrix() const {
     XMVECTOR pos = XMLoadFloat3(&m_position);
     XMVECTOR fwd = XMLoadFloat3(&m_forward);
     XMVECTOR up = XMLoadFloat3(&m_up);
@@ -79,8 +73,7 @@ XMMATRIX Camera::getViewMatrix() const
     return XMMatrixLookAtLH(pos, target, up);
 }
 
-void Camera::setLookAt(const DirectX::XMFLOAT3& target)
-{
+void Camera::setLookAt(const DirectX::XMFLOAT3 &target) {
     XMVECTOR pos = XMLoadFloat3(&m_position);
     XMVECTOR tgt = XMLoadFloat3(&target);
     XMVECTOR dir = XMVector3Normalize(XMVectorSubtract(tgt, pos));

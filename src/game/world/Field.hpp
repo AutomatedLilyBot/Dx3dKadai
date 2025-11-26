@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <memory>
-#include "game/entity/StaticEntity.hpp"
+#include "../../../src/game/entity/StaticEntity.hpp"
 
 class Field {
 public:

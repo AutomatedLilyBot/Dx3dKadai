@@ -2,7 +2,7 @@
 // Created by zyzyz on 2025/10/22.
 //
 
-#include "core/gfx/ShaderProgram.hpp"
+#include "ShaderProgram.hpp"
 
 
 static bool CompileShader(const std::string &src, const char *entry, const char *profile, ID3DBlob **blob) {

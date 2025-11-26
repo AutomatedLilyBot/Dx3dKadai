@@ -1,4 +1,4 @@
-#include "core/gfx/Texture.hpp"
+#include "Texture.hpp"
 #include <DirectXTex.h>
 #include <wrl/client.h>
 #include <cwctype>
@@ -6,8 +6,7 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
-bool Texture::loadFromFile(ID3D11Device* device, const std::wstring& filepath)
-{
+bool Texture::loadFromFile(ID3D11Device *device, const std::wstring &filepath) {
     // Determine file extension
     std::wstring ext = filepath.substr(filepath.find_last_of(L'.'));
 
@@ -18,14 +17,11 @@ bool Texture::loadFromFile(ID3D11Device* device, const std::wstring& filepath)
     // Load based on file type
     if (ext == L".dds" || ext == L".DDS") {
         hr = LoadFromDDSFile(filepath.c_str(), DDS_FLAGS_NONE, &metadata, image);
-    }
-    else if (ext == L".tga" || ext == L".TGA") {
+    } else if (ext == L".tga" || ext == L".TGA") {
         hr = LoadFromTGAFile(filepath.c_str(), &metadata, image);
-    }
-    else if (ext == L".hdr" || ext == L".HDR") {
+    } else if (ext == L".hdr" || ext == L".HDR") {
         hr = LoadFromHDRFile(filepath.c_str(), &metadata, image);
-    }
-    else {
+    } else {
         // WIC supports: jpg, png, bmp, gif, tiff, etc.
         hr = LoadFromWICFile(filepath.c_str(), WIC_FLAGS_NONE, &metadata, image);
     }
@@ -37,7 +33,7 @@ bool Texture::loadFromFile(ID3D11Device* device, const std::wstring& filepath)
 
     // Create shader resource view
     hr = CreateShaderResourceView(device, image.GetImages(), image.GetImageCount(),
-                                   metadata, m_srv.ReleaseAndGetAddressOf());
+                                  metadata, m_srv.ReleaseAndGetAddressOf());
 
     if (FAILED(hr)) {
         wprintf(L"Failed to create SRV, HRESULT: 0x%08X\n", hr);
@@ -46,8 +42,7 @@ bool Texture::loadFromFile(ID3D11Device* device, const std::wstring& filepath)
     return SUCCEEDED(hr);
 }
 
-bool Texture::loadFromMemory(ID3D11Device* device, const void* data, size_t sizeInBytes, const char* formatHint)
-{
+bool Texture::loadFromMemory(ID3D11Device *device, const void *data, size_t sizeInBytes, const char *formatHint) {
     if (!device || !data || sizeInBytes == 0) return false;
 
     TexMetadata metadata = {};
@@ -57,40 +52,44 @@ bool Texture::loadFromMemory(ID3D11Device* device, const void* data, size_t size
     // Try according to format hint first
     if (formatHint) {
         std::string hint(formatHint);
-        for (auto& c : hint) c = (char)std::towlower((wchar_t)c);
+        for (auto &c: hint) c = (char) std::towlower((wchar_t) c);
         if (hint == "dds") {
-            hr = LoadFromDDSMemory(reinterpret_cast<const uint8_t*>(data), sizeInBytes, DDS_FLAGS_NONE, &metadata, image);
+            hr = LoadFromDDSMemory(reinterpret_cast<const uint8_t *>(data), sizeInBytes, DDS_FLAGS_NONE, &metadata,
+                                   image);
         } else if (hint == "tga") {
             // No direct TGA memory loader in DirectXTex, fall back to WIC
-            hr = LoadFromWICMemory(reinterpret_cast<const uint8_t*>(data), sizeInBytes, WIC_FLAGS_NONE, &metadata, image);
+            hr = LoadFromWICMemory(reinterpret_cast<const uint8_t *>(data), sizeInBytes, WIC_FLAGS_NONE, &metadata,
+                                   image);
         } else if (hint == "hdr") {
-            hr = LoadFromHDRMemory(reinterpret_cast<const uint8_t*>(data), sizeInBytes, &metadata, image);
+            hr = LoadFromHDRMemory(reinterpret_cast<const uint8_t *>(data), sizeInBytes, &metadata, image);
         } else {
-            hr = LoadFromWICMemory(reinterpret_cast<const uint8_t*>(data), sizeInBytes, WIC_FLAGS_NONE, &metadata, image);
+            hr = LoadFromWICMemory(reinterpret_cast<const uint8_t *>(data), sizeInBytes, WIC_FLAGS_NONE, &metadata,
+                                   image);
         }
     }
 
     // If failed or no hint, try common loaders
     if (FAILED(hr)) {
-        hr = LoadFromDDSMemory(reinterpret_cast<const uint8_t*>(data), sizeInBytes, DDS_FLAGS_NONE, &metadata, image);
+        hr = LoadFromDDSMemory(reinterpret_cast<const uint8_t *>(data), sizeInBytes, DDS_FLAGS_NONE, &metadata, image);
     }
     if (FAILED(hr)) {
-        hr = LoadFromHDRMemory(reinterpret_cast<const uint8_t*>(data), sizeInBytes, &metadata, image);
+        hr = LoadFromHDRMemory(reinterpret_cast<const uint8_t *>(data), sizeInBytes, &metadata, image);
     }
     if (FAILED(hr)) {
-        hr = LoadFromWICMemory(reinterpret_cast<const uint8_t*>(data), sizeInBytes, WIC_FLAGS_NONE, &metadata, image);
+        hr = LoadFromWICMemory(reinterpret_cast<const uint8_t *>(data), sizeInBytes, WIC_FLAGS_NONE, &metadata, image);
     }
 
     if (FAILED(hr)) {
         return false;
     }
 
-    hr = CreateShaderResourceView(device, image.GetImages(), image.GetImageCount(), metadata, m_srv.ReleaseAndGetAddressOf());
+    hr = CreateShaderResourceView(device, image.GetImages(), image.GetImageCount(), metadata,
+                                  m_srv.ReleaseAndGetAddressOf());
     return SUCCEEDED(hr);
 }
 
-bool Texture::createFromRGBA(ID3D11Device* device, const void* rgbaPixels, uint32_t width, uint32_t height, uint32_t rowPitch)
-{
+bool Texture::createFromRGBA(ID3D11Device *device, const void *rgbaPixels, uint32_t width, uint32_t height,
+                             uint32_t rowPitch) {
     if (!device || !rgbaPixels || width == 0 || height == 0) return false;
 
     if (rowPitch == 0) rowPitch = width * 4u;
@@ -123,10 +122,10 @@ bool Texture::createFromRGBA(ID3D11Device* device, const void* rgbaPixels, uint3
     return SUCCEEDED(hr);
 }
 
-bool Texture::createSolidColor(ID3D11Device* device, unsigned char r, unsigned char g, unsigned char b, unsigned char a)
-{
+bool Texture::createSolidColor(ID3D11Device *device, unsigned char r, unsigned char g, unsigned char b,
+                               unsigned char a) {
     // Create a 1x1 texture with solid color
-    unsigned char pixels[4] = { r, g, b, a };
+    unsigned char pixels[4] = {r, g, b, a};
 
     D3D11_TEXTURE2D_DESC texDesc = {};
     texDesc.Width = 1;

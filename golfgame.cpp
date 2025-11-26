@@ -2,9 +2,9 @@
 //
 
 #include "golfgame.h"
-#include "core/gfx/Renderer.hpp"
-#include "game/entity/Cube.hpp"
-#include "core/gfx/ModelLoader.hpp"
+#include "src/core/gfx/Renderer.hpp"
+#include "src/game/entity/Cube.hpp"
+#include "src/core/gfx/ModelLoader.hpp"
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <windows.h>
@@ -12,10 +12,11 @@
 #include <array>
 #include <random>
 #include <DirectXMath.h>
-#include "core/gfx/Model.hpp"
-#include "game/world/Field.hpp"
-#include "game/entity/StaticEntity.hpp"
-#include "include/core/physics/Transform.hpp"
+#include "src/core/gfx/Model.hpp"
+#include "src/game/world/Field.hpp"
+#include "src/game/entity/StaticEntity.hpp"
+#include "src/core/physics/Transform.hpp"
+#include "src/core/physics/Collider.hpp"
 
 using namespace std;
 using namespace DirectX;
@@ -85,6 +86,15 @@ int main()
 			field.add(std::move(t));
 		}
 	}
+	//create some colliders to test debugdraw
+
+	auto obb = MakeObbCollider(XMFLOAT3(1, 1, 1));
+	obb->setDebugEnabled(true);
+	obb->setDebugColor(XMFLOAT4(1, 0, 0, 1));
+	obb->setPosition(XMFLOAT3(0, 0, 0));
+	obb->setScale(XMFLOAT3(10, 10, 10));
+	obb->setRotationEuler(XMFLOAT3(0, 0, 0));
+
 
 	// Create 9 Cube entities arranged in a 3x3 grid around the origin
 	// std::array<Cube, 9> cubes;
@@ -174,6 +184,7 @@ int main()
             }
 		}
 
+		//renderer.drawColliderWire(*obb);
 		// Draw loaded model if available
 		// if (modelLoaded) {
 		// 	XMMATRIX S = XMMatrixScaling(10.0f, 10.0f, 10.0f);

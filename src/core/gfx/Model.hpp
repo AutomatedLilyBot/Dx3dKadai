@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <DirectXMath.h>
-#include "Mesh.hpp"
+#include "../../../src/core/gfx/Mesh.hpp"
 #include "Texture.hpp"
 
 // Aggregated model consisting of multiple meshes, materials, and per-node draw items

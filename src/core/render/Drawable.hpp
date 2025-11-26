@@ -1,6 +1,6 @@
 #pragma once
 #include <DirectXMath.h>
-#include "core/gfx/Model.hpp"
+#include "../../../src/core/gfx/Model.hpp"
 #include "Material.hpp"
 
 // Drawable interface - bridge to Renderer

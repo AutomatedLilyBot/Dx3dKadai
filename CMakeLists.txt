@@ -67,7 +67,7 @@ set_target_properties(assimp::assimp PROPERTIES
 )
 
 # ----- 源文件收集 -----
-file(GLOB_RECURSE HEADERS "include/**/*.hpp" "include/**/*.h")
+file(GLOB_RECURSE HEADERS "src**/*.hpp" "src/**/*.h")
 file(GLOB_RECURSE SOURCES "src/**/*.cpp" "src/**/*.c")
 
 # ----- 可执行文件 -----
@@ -75,9 +75,9 @@ add_executable(golfgame
         "golfgame.cpp" "golfgame.h"
         ${HEADERS} ${SOURCES}
         src/core/gfx/ModelLoader.cpp
-        include/core/gfx/ModelLoader.hpp
+        src/core/gfx/ModelLoader.hpp
         src/game/entity/Cube.cpp
-        include/game/entity/Cube.hpp
+        src/game/entity/Cube.hpp
 )
 
 # C++ 标准

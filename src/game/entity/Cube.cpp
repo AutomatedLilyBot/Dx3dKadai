@@ -2,7 +2,7 @@
 // Created by zyzyz on 2025/10/30.
 //
 
-#include "../../../include/game/entity/Cube.hpp"
+#include "Cube.hpp"
 #include <string>
 #include <windows.h>
 

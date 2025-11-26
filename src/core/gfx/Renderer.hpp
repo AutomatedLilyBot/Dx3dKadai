@@ -5,6 +5,7 @@
 #include "Texture.hpp"
 #include "Camera.hpp"
 #include "Model.hpp"
+#include "../physics/Collider.hpp"
 #include <DirectXMath.h>
 
 // Forward declare to avoid heavy include in header
@@ -25,6 +26,11 @@ public:
 
     // Draw via drawable interface (adapter)
     void draw(const IDrawable &drawable);
+
+    // Debug draw helpers for colliders (wireframe via line list)
+    void drawColliderWire(const ColliderBase &col);
+
+    void drawCollidersWire(const std::vector<ColliderBase *> &cols);
 
     // Camera access
     Camera& getCamera() { return m_camera; }
@@ -60,6 +66,9 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbTransform;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbLight;
     Microsoft::WRL::ComPtr<ID3D11SamplerState> m_sampler;
+
+    // Dynamic vertex buffer for debug lines
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_debugVB;
 
     DirectX::XMFLOAT3 m_lightDir{0.577f, -0.577f, 0.577f}; // Normalized diagonal
     DirectX::XMFLOAT3 m_lightColor{1.0f, 1.0f, 1.0f};

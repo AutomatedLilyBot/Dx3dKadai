@@ -1,4 +1,4 @@
-#include "core/gfx/ModelLoader.hpp"
+#include "ModelLoader.hpp"
 
 #include <vector>
 #include <string>
@@ -367,7 +367,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
     std::vector<int> meshMap(scene->mNumMeshes, -1);
 
     // Recursive traversal of nodes to collect draw items and create meshes when first seen
-    std::function<void(const aiNode *, DirectX::XMMATRIX)> visit;
+    std::function < void(const aiNode *, DirectX::XMMATRIX) > visit;
     visit = [&](const aiNode *node, DirectX::XMMATRIX parent) {
         DirectX::XMMATRIX local = ToXM(node->mTransformation);
         DirectX::XMMATRIX global = DirectX::XMMatrixMultiply(parent, local); // parent * local

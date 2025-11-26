@@ -4,32 +4,36 @@
 
 #ifndef GOLFGAME_CUBE_HPP
 #define GOLFGAME_CUBE_HPP
-#include "core/gfx/Mesh.hpp"
-#include "core/gfx/Texture.hpp"
+#include "../../core/gfx/Mesh.hpp"
+#include "../../core/gfx/Texture.hpp"
 #include <DirectXMath.h>
 
 
 class Cube {
 public:
     Cube() = default;
+
     ~Cube() = default;
 
     // Initialize the cube with a device
-    bool initialize(ID3D11Device* device);
+    bool initialize(ID3D11Device *device);
 
     // Getters
-    Mesh& getMesh() { return m_mesh; }
-    const Mesh& getMesh() const { return m_mesh; }
+    Mesh &getMesh() { return m_mesh; }
+    const Mesh &getMesh() const { return m_mesh; }
 
-    Texture& getTexture() { return m_texture; }
-    const Texture& getTexture() const { return m_texture; }
+    Texture &getTexture() { return m_texture; }
+    const Texture &getTexture() const { return m_texture; }
 
     DirectX::XMMATRIX getTransform() const;
 
     // Transform setters
     void setPosition(float x, float y, float z);
+
     void setRotation(float pitch, float yaw, float roll);
+
     void setScale(float x, float y, float z);
+
     void setScale(float uniformScale);
 
 private:
