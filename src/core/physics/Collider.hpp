@@ -1,5 +1,5 @@
 #pragma once
-
+#pragma execution_character_set("utf-8")
 // 新一代碰撞体接口（仅草案/头文件，暂无实现）
 // 说明：
 // - 仅支持三类：Sphere、OBB、Capsule。
@@ -90,6 +90,11 @@ public:
     virtual bool setOwnerOffset(const DirectX::XMFLOAT3 &offset) = 0;
 
     virtual DirectX::XMFLOAT3 ownerOffset() const = 0;
+
+    // Trigger 标志：标记为 trigger 的碰撞体仅用于触发事件，不产生物理碰撞响应
+    virtual void setIsTrigger(bool trigger) = 0;
+
+    virtual bool isTrigger() const = 0;
 };
 
 // Sphere：局部参数为 centerLocal（可选）+ radiusLocal；世界半径=radiusLocal*uniformScale

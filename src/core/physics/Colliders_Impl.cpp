@@ -68,6 +68,9 @@ namespace {
 
         XMFLOAT3 ownerOffset() const override { return m_ownerOffset; }
 
+        void setIsTrigger(bool trigger) override { m_isTrigger = trigger; }
+        bool isTrigger() const override { return m_isTrigger; }
+
         // Sphere specifics
         float radiusLocal() const override { return m_radiusLocal; }
         float radiusWorld() const override { return m_radiusLocal * m_scl.x; }
@@ -81,6 +84,7 @@ namespace {
         bool m_dbgEnabled{false};
         XMFLOAT4 m_dbgColor{0, 0.5f, 1, 1};
         XMFLOAT3 m_ownerOffset{0, 0, 0};
+        bool m_isTrigger{false};
     };
 
     class ObbColliderImpl final : public ObbCollider {
@@ -142,6 +146,9 @@ namespace {
 
         XMFLOAT3 ownerOffset() const override { return m_ownerOffset; }
 
+        void setIsTrigger(bool trigger) override { m_isTrigger = trigger; }
+        bool isTrigger() const override { return m_isTrigger; }
+
         // OBB specifics
         XMFLOAT3 centerWorld() const override { return m_pos; }
 
@@ -172,6 +179,7 @@ namespace {
         bool m_dbgEnabled{false};
         XMFLOAT4 m_dbgColor{0, 1, 0, 1};
         XMFLOAT3 m_ownerOffset{0, 0, 0};
+        bool m_isTrigger{false};
     };
 
     class CapsuleColliderImpl final : public CapsuleCollider {
@@ -241,6 +249,9 @@ namespace {
 
         XMFLOAT3 ownerOffset() const override { return m_ownerOffset; }
 
+        void setIsTrigger(bool trigger) override { m_isTrigger = trigger; }
+        bool isTrigger() const override { return m_isTrigger; }
+
         // Capsule specifics
         std::pair<XMFLOAT3, XMFLOAT3> segmentWorld() const override {
             XMMATRIX S = XMMatrixScaling(m_scl.x, m_scl.y, m_scl.z);
@@ -293,6 +304,7 @@ namespace {
         bool m_dbgEnabled{false};
         XMFLOAT4 m_dbgColor{1, 0.5f, 0, 1};
         XMFLOAT3 m_ownerOffset{0, 0, 0};
+        bool m_isTrigger{false};
     };
 } // namespace
 

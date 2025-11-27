@@ -1,7 +1,9 @@
 #include "Renderer.hpp"
-
+#undef min
+#undef max
 #include <cmath>
 #include <string>
+#include <algorithm>
 #include "../render/Drawable.hpp"
 #include <vector>
 using namespace DirectX;
@@ -326,6 +328,114 @@ void Renderer::drawColliderWire(const ColliderBase &col) {
 
 void Renderer::drawCollidersWire(const std::vector<ColliderBase *> &cols) {
     for (auto *c: cols) if (c) drawColliderWire(*c);
+}
+
+// ---- Debug draw for contact info (OverlapResult) ----
+void Renderer::drawContactGizmo(const OverlapResult &contact, const XMFLOAT4 &color, float scale) {
+    using namespace DirectX;
+    if (!contact.intersects) return;
+
+    struct DebugLineVertex { XMFLOAT3 pos; XMFLOAT3 normal; XMFLOAT4 color; XMFLOAT2 uv; };
+    std::vector<DebugLineVertex> vtx; vtx.reserve(128);
+    auto addLine = [&](const XMFLOAT3& a, const XMFLOAT3& b, const XMFLOAT4& c){
+        vtx.push_back(DebugLineVertex{a, XMFLOAT3{0,0,1}, c, XMFLOAT2{0,0}});
+        vtx.push_back(DebugLineVertex{b, XMFLOAT3{0,0,1}, c, XMFLOAT2{0,0}});
+    };
+
+    const XMFLOAT3& A = contact.pointOnA;
+    const XMFLOAT3& B = contact.pointOnB;
+    const XMFLOAT3& N = contact.normal; // assumed A->B
+
+    // Small crosses at A and B
+    auto addCross = [&](const XMFLOAT3& p, float s){
+        XMFLOAT3 dx{ s,0,0 }, dy{0,s,0}, dz{0,0,s};
+        addLine(XMFLOAT3{p.x - s, p.y, p.z}, XMFLOAT3{p.x + s, p.y, p.z}, color);
+        addLine(XMFLOAT3{p.x, p.y - s, p.z}, XMFLOAT3{p.x, p.y + s, p.z}, color);
+        addLine(XMFLOAT3{p.x, p.y, p.z - s}, XMFLOAT3{p.x, p.y, p.z + s}, color);
+    };
+    float crossSize = std::max(0.025f, 0.04f * scale);
+    addCross(A, crossSize);
+    addCross(B, crossSize);
+
+    // Line between A and B
+    addLine(A, B, color);
+
+    // Contact normal arrow, from midpoint towards N
+    XMFLOAT3 mid{ (A.x + B.x) * 0.5f, (A.y + B.y) * 0.5f, (A.z + B.z) * 0.5f };
+    float len = std::max(contact.penetration, 0.15f) * scale;
+    XMFLOAT3 tip{ mid.x + N.x * len, mid.y + N.y * len, mid.z + N.z * len };
+    addLine(mid, tip, color);
+    // Arrow wings
+    // Build orthonormal basis for N
+    XMVECTOR nV = XMVector3Normalize(XMLoadFloat3(&N));
+    XMVECTOR tmp = XMVectorSet(0,1,0,0);
+    if (std::fabs(XMVectorGetX(XMVector3Dot(nV, tmp))) > 0.99f) tmp = XMVectorSet(1,0,0,0);
+    XMVECTOR u = XMVector3Normalize(XMVector3Cross(nV, tmp));
+    XMVECTOR v = XMVector3Cross(nV, u);
+    float wingLen = std::max(0.06f, 0.1f * scale);
+    XMVECTOR tipV = XMLoadFloat3(&tip);
+    XMVECTOR back = XMVectorSubtract(tipV, XMVectorScale(nV, wingLen));
+    XMFLOAT3 wing1, wing2;
+    XMStoreFloat3(&wing1, XMVectorAdd(back, XMVectorScale(u, wingLen*0.6f)));
+    XMStoreFloat3(&wing2, XMVectorAdd(back, XMVectorScale(v, wingLen*0.6f)));
+    addLine(tip, wing1, color);
+    addLine(tip, wing2, color);
+
+    if (vtx.empty()) return;
+
+    // Create/update dynamic VB (recreate for simplicity)
+    UINT bytes = (UINT)(vtx.size() * sizeof(DebugLineVertex));
+    m_debugVB.Reset();
+    D3D11_BUFFER_DESC bd{}; bd.ByteWidth = bytes; bd.Usage = D3D11_USAGE_DYNAMIC; bd.BindFlags = D3D11_BIND_VERTEX_BUFFER; bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    D3D11_SUBRESOURCE_DATA init{ vtx.data(), 0, 0 };
+    m_dev.device()->CreateBuffer(&bd, &init, m_debugVB.ReleaseAndGetAddressOf());
+
+    // Set transform for lines (world = identity)
+    XMMATRIX I = XMMatrixIdentity();
+    XMMATRIX V = m_camera.getViewMatrix();
+    float aspect = (float)m_dev.width() / (float)m_dev.height();
+    XMMATRIX P = XMMatrixPerspectiveFovLH(XMConvertToRadians(60.0f), aspect, 0.1f, 100.f);
+    TransformCB cb{}; XMStoreFloat4x4(&cb.World, I); XMStoreFloat4x4(&cb.WVP, I*V*P);
+    m_dev.context()->UpdateSubresource(m_cbTransform.Get(), 0, nullptr, &cb, 0, 0);
+
+    // Light CB unchanged
+    LightCB cbLight{}; cbLight.lightDir = m_lightDir; cbLight.lightColor = m_lightColor; cbLight.ambientColor = m_ambientColor;
+    m_dev.context()->UpdateSubresource(m_cbLight.Get(), 0, nullptr, &cbLight, 0, 0);
+
+    // Bind shader and CBs
+    m_shader.bind(m_dev.context());
+    ID3D11Buffer* cbs[] = { m_cbTransform.Get(), m_cbLight.Get() };
+    m_dev.context()->VSSetConstantBuffers(0, 2, cbs);
+    m_dev.context()->PSSetConstantBuffers(0, 2, cbs);
+
+    // Bind default texture and sampler
+    ID3D11ShaderResourceView* srv = m_defaultTexture.srv();
+    m_dev.context()->PSSetShaderResources(0, 1, &srv);
+    ID3D11SamplerState* samp = m_sampler.Get();
+    m_dev.context()->PSSetSamplers(0, 1, &samp);
+
+    // Set RTs and viewport
+    ID3D11RenderTargetView* rtv = m_dev.rtv();
+    ID3D11DepthStencilView* dsv = m_dev.dsv();
+    m_dev.context()->OMSetRenderTargets(1, &rtv, dsv);
+    D3D11_VIEWPORT vp{0,0,(FLOAT)m_dev.width(),(FLOAT)m_dev.height(),0,1};
+    m_dev.context()->RSSetViewports(1, &vp);
+
+    // IA setup and draw
+    UINT stride = sizeof(DebugLineVertex), offset = 0;
+    ID3D11Buffer* vb = m_debugVB.Get();
+    m_dev.context()->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+    m_dev.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+    m_dev.context()->Draw((UINT)vtx.size(), 0);
+
+    ID3D11ShaderResourceView* nullSRV[1] = { nullptr };
+    m_dev.context()->PSSetShaderResources(0, 1, nullSRV);
+}
+
+void Renderer::drawContactsGizmo(const std::vector<OverlapResult> &contacts,
+                                 const DirectX::XMFLOAT4 &color,
+                                 float scale) {
+    for (const auto& c : contacts) drawContactGizmo(c, color, scale);
 }
 
 void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, const Texture& texture)

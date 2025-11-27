@@ -32,6 +32,19 @@ public:
 
     void drawCollidersWire(const std::vector<ColliderBase *> &cols);
 
+    // Draw collision contact info (generated per-frame). No per-contact toggle; just draw when called.
+    // It visualizes:
+    // - pointOnA/pointOnB as small crosses
+    // - a line between pointOnA and pointOnB
+    // - contact normal (from midpoint towards normal) with an arrow; length ~ max(penetration, minLen)
+    void drawContactGizmo(const OverlapResult &contact,
+                          const DirectX::XMFLOAT4 &color = DirectX::XMFLOAT4{1,1,0,1},
+                          float scale = 1.0f);
+    // Batch version
+    void drawContactsGizmo(const std::vector<OverlapResult> &contacts,
+                           const DirectX::XMFLOAT4 &color = DirectX::XMFLOAT4{1,1,0,1},
+                           float scale = 1.0f);
+
     // Camera access
     Camera& getCamera() { return m_camera; }
     const Camera& getCamera() const { return m_camera; }
