@@ -13,13 +13,16 @@ struct IDrawable;
 
 class Renderer {
 public:
-    bool initialize(HWND hwnd, unsigned width, unsigned height, bool debug=false);
+    bool initialize(HWND hwnd, unsigned width, unsigned height, bool debug = false);
+
     void shutdown();
-    void beginFrame(float r=0.1f,float g=0.1f,float b=0.15f,float a=1.0f);
+
+    void beginFrame(float r = 0.1f, float g = 0.1f, float b = 0.15f, float a = 1.0f);
+
     void endFrame();
 
     // Draw mesh with transform matrix and texture
-    void drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, const Texture& texture);
+    void drawMesh(const Mesh &mesh, const DirectX::XMMATRIX &transform, const Texture &texture);
 
     // Draw a full model: iterate draw items, combine model transform with node transforms
     void drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform);
@@ -38,22 +41,27 @@ public:
     // - a line between pointOnA and pointOnB
     // - contact normal (from midpoint towards normal) with an arrow; length ~ max(penetration, minLen)
     void drawContactGizmo(const OverlapResult &contact,
-                          const DirectX::XMFLOAT4 &color = DirectX::XMFLOAT4{1,1,0,1},
+                          const DirectX::XMFLOAT4 &color = DirectX::XMFLOAT4{1, 1, 0, 1},
                           float scale = 1.0f);
+
     // Batch version
     void drawContactsGizmo(const std::vector<OverlapResult> &contacts,
-                           const DirectX::XMFLOAT4 &color = DirectX::XMFLOAT4{1,1,0,1},
+                           const DirectX::XMFLOAT4 &color = DirectX::XMFLOAT4{1, 1, 0, 1},
                            float scale = 1.0f);
 
     // Camera access
-    Camera& getCamera() { return m_camera; }
-    const Camera& getCamera() const { return m_camera; }
+    Camera &getCamera() { return m_camera; }
+    const Camera &getCamera() const { return m_camera; }
 
     // Temporary accessor for cube mesh (for demo purposes)
-    const Mesh& getCubeMesh() const { return m_cube; }
+    const Mesh &getCubeMesh() const { return m_cube; }
+
+    // Convenience: draw the internal unit cube mesh with the default texture
+    // Transform is provided by caller (world matrix)
+    void drawCube(const DirectX::XMMATRIX &worldTransform);
 
     // Device accessor for resource initialization
-    ID3D11Device* device() const { return m_dev.device(); }
+    ID3D11Device *device() const { return m_dev.device(); }
 
 private:
     struct TransformCB {
@@ -71,10 +79,10 @@ private:
     };
 
     RenderDeviceD3D11 m_dev;
-    ShaderProgram     m_shader;
-    Mesh              m_cube;
-    Texture           m_defaultTexture;
-    Camera            m_camera;
+    ShaderProgram m_shader;
+    Mesh m_cube;
+    Texture m_defaultTexture;
+    Camera m_camera;
 
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbTransform;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbLight;

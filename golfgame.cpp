@@ -17,6 +17,7 @@
 #include "src/game/entity/StaticEntity.hpp"
 #include "src/core/physics/Transform.hpp"
 #include "src/core/physics/Collider.hpp"
+#include "src/game/runtime/Scene.hpp"
 
 using namespace std;
 using namespace DirectX;
@@ -38,6 +39,10 @@ int main()
 
 	Renderer renderer;
 	renderer.initialize(hwnd, 800, 600, true);
+
+	// 初始化调度系统（空场景）
+	Scene scene;
+	scene.init(&renderer);
 
 	// Create a Field and load models for platform and decoration
 	Field field;
@@ -86,15 +91,6 @@ int main()
 			field.add(std::move(t));
 		}
 	}
-	//create some colliders to test debugdraw
-
-	auto obb = MakeObbCollider(XMFLOAT3(1, 1, 1));
-	obb->setDebugEnabled(true);
-	obb->setDebugColor(XMFLOAT4(1, 0, 0, 1));
-	obb->setPosition(XMFLOAT3(0, 0, 0));
-	obb->setScale(XMFLOAT3(10, 10, 10));
-	obb->setRotationEuler(XMFLOAT3(0, 0, 0));
-
 
 	// Create 9 Cube entities arranged in a 3x3 grid around the origin
 	// std::array<Cube, 9> cubes;
@@ -174,15 +170,14 @@ int main()
 			}
 		}
 
-        // Frame render
+		// 驱动场景调度（物理→更新→提交），当前为空实现，仅验证时序
+		scene.tick(deltaTime);
+
+		// Frame render
         renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
 
-        // Render field by enumerating entities
-        for (const auto& e : field.entities()) {
-            if (e && e->model()) {
-	            renderer.draw(*e);
-            }
-		}
+		// 让 Scene 自行渲染其内部内容（最小演示：一个 cube）
+		scene.render();
 
 		//renderer.drawColliderWire(*obb);
 		// Draw loaded model if available

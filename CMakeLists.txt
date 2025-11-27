@@ -74,10 +74,6 @@ file(GLOB_RECURSE SOURCES "src/**/*.cpp" "src/**/*.c")
 add_executable(golfgame
         "golfgame.cpp" "golfgame.h"
         ${HEADERS} ${SOURCES}
-        src/core/gfx/ModelLoader.cpp
-        src/core/gfx/ModelLoader.hpp
-        src/game/entity/Cube.cpp
-        src/game/entity/Cube.hpp
 )
 
 # C++ 标准
