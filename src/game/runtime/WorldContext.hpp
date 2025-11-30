@@ -13,7 +13,7 @@
 // 实际项目中应由 Scene 在每帧物理步后填充缓存数据。
 struct PhysicsQuery {
     // 指向“本帧触发器重叠映射”：triggerEntity -> { other entity ids }
-    const std::unordered_map<EntityId, std::unordered_set<EntityId>> *triggerOverlaps = nullptr;
+    const std::unordered_map<EntityId, std::unordered_set<EntityId> > *triggerOverlaps = nullptr;
 
     bool isAnyTriggerOverlapping(EntityId e) const {
         if (!triggerOverlaps) return false;
@@ -34,16 +34,25 @@ struct PhysicsQuery {
         auto it = triggerOverlaps->find(triggerEntity);
         if (it == triggerOverlaps->end()) return 0;
         out.reserve(it->second.size());
-        for (auto id : it->second) out.push_back(id);
+        for (auto id: it->second) out.push_back(id);
         return out.size();
     }
 };
 
 // 命令缓冲区（最小占位实现）：延后到提交阶段统一执行。
 struct CommandBuffer {
-    struct SpawnBallCmd { DirectX::XMFLOAT3 pos; float radius; };
-    struct DestroyCmd { EntityId id; };
-    struct ResetCmd { bool doReset = false; };
+    struct SpawnBallCmd {
+        DirectX::XMFLOAT3 pos;
+        float radius;
+    };
+
+    struct DestroyCmd {
+        EntityId id;
+    };
+
+    struct ResetCmd {
+        bool doReset = false;
+    };
 
     std::vector<SpawnBallCmd> spawnBalls;
     std::vector<DestroyCmd> toDestroy;
@@ -65,5 +74,5 @@ struct WorldContext {
     float time = 0.0f;
     float dt = 0.0f;
     const PhysicsQuery *physics = nullptr; // 只读
-    CommandBuffer *commands = nullptr;      // 可写
+    CommandBuffer *commands = nullptr; // 可写
 };

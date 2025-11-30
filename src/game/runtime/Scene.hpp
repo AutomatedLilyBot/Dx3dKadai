@@ -33,17 +33,20 @@ public:
 
 private:
     void buildPhysicsQueryFromLastFrame();
+
     void submitCommands();
-    
+
     // 实体管理
     EntityId allocId() { return ++nextId_; }
+
     void registerEntity(IEntity &e);
+
     void unregisterEntity(EntityId id);
 
 private:
     Renderer *renderer_ = nullptr; // 仅保存指针，生命周期由外部管理
     PhysicsWorld world_{};
-    PhysicsQuery query_{};     // 当前帧只读物理查询视图（占位）
+    PhysicsQuery query_{}; // 当前帧只读物理查询视图（占位）
     CommandBuffer cmdBuffer_{}; // 命令缓冲（占位）
     float time_ = 0.0f;
 
@@ -51,11 +54,11 @@ private:
     Transform demoCubeTransform_{};
 
     // 资源与实体容器
-    std::vector<std::unique_ptr<IEntity>> entities_;
-    std::unordered_map<EntityId, IEntity*> id2ptr_;
+    std::vector<std::unique_ptr<IEntity> > entities_;
+    std::unordered_map<EntityId, IEntity *> id2ptr_;
     EntityId nextId_ = 0;
 
     // 触发器重叠缓存（entity→set），由物理回调维护
-    std::unordered_map<EntityId, std::unordered_set<EntityId>> triggerOverlaps_;
-    std::unordered_map<EntityId, std::unordered_set<EntityId>> tempTriggerOverlaps_;
+    std::unordered_map<EntityId, std::unordered_set<EntityId> > triggerOverlaps_;
+    std::unordered_map<EntityId, std::unordered_set<EntityId> > tempTriggerOverlaps_;
 };

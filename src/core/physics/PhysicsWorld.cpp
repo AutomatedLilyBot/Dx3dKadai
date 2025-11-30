@@ -14,23 +14,41 @@ static inline float len3(const XMFLOAT3 &a) { return std::sqrt(std::max(0.0f, do
 void PhysicsWorld::setParams(const WorldParams &p) { params_ = p; }
 
 void PhysicsWorld::registerEntity(EntityId e, RigidBody *rb, std::span<ColliderBase *> cols) {
-    if (!rb) return;
-    // 若尚未注册 Body，则新建镜像并建立映射
-    int idx = rb->bodyIdx;
-    if (idx < 0) {
+    // 为该实体分配/获取 body 索引：
+    // - 若提供 RigidBody*，则镜像其状态并建立写回；
+    // - 若 rb == nullptr，也创建一个 invMass=0 的静态 BodyState（无写回），用于与动态体解算/参与触发。
+    int idx = -1;
+    if (rb) {
+        idx = rb->bodyIdx;
+        if (idx < 0) {
+            idx = static_cast<int>(bodies_.size());
+            BodyState bs{};
+            bs.p = rb->position;
+            bs.v = rb->velocity;
+            bs.invMass = rb->invMass;
+            bs.restitution = rb->restitution;
+            bs.muS = rb->muS;
+            bs.muK = rb->muK;
+            bodies_.push_back(bs);
+            bodyRefs_.push_back(rb);
+            collidersByBody_.emplace_back();
+            rb->bodyIdx = idx;
+        }
+    } else {
+        // 静态：为该静态实体创建一个仅内部使用的 BodyState 条目
         idx = static_cast<int>(bodies_.size());
         BodyState bs{};
-        bs.p = rb->position;
-        bs.v = rb->velocity;
-        bs.invMass = rb->invMass;
-        bs.restitution = rb->restitution;
-        bs.muS = rb->muS;
-        bs.muK = rb->muK;
+        // 若该实体有 collider，可从第一个 collider 取初始位置，否则默认 (0,0,0)
+        DirectX::XMFLOAT3 p0{0, 0, 0};
+        if (!cols.empty() && cols[0]) p0 = cols[0]->position();
+        bs.p = p0;
+        bs.v = DirectX::XMFLOAT3{0, 0, 0};
+        bs.invMass = 0.0f; // 静态
         bodies_.push_back(bs);
-        bodyRefs_.push_back(rb);
+        bodyRefs_.push_back(nullptr); // 无写回目标
         collidersByBody_.emplace_back();
-        rb->bodyIdx = idx;
     }
+
     entity2bodyIdx_[e] = idx;
 
     // 绑定 Colliders

@@ -19,13 +19,18 @@ struct IEntity : public IDrawable {
     virtual ~IEntity() = default;
 
     virtual EntityId id() const = 0;
+
     virtual Transform &transformRef() = 0;
+
     virtual std::span<ColliderBase *> colliders() = 0; // 只读访问裸指针集合
-    virtual RigidBody *rigidBody() = 0;                 // 静态体返回 nullptr
+    virtual RigidBody *rigidBody() = 0; // 静态体返回 nullptr
 
     // 每帧逻辑入口（由场景在物理步后调用）
-    virtual void update(WorldContext & /*ctx*/, float /*dt*/) {}
+    virtual void update(WorldContext & /*ctx*/, float /*dt*/) {
+    }
 
     // 触发器事件（场景从 PhysicsWorld 回调路由到具体实体）
-    virtual void onTrigger(WorldContext & /*ctx*/, EntityId /*other*/, TriggerPhase /*phase*/, const OverlapResult & /*c*/) {}
+    virtual void onTrigger(WorldContext & /*ctx*/, EntityId /*other*/, TriggerPhase /*phase*/,
+                           const OverlapResult & /*c*/) {
+    }
 };
