@@ -27,7 +27,7 @@ project ("golfgame")
 
 # ----- 头文件路径（你项目的 include/）-----
 include_directories(include)
-
+include_directories(src)
 # ----- 依赖（仍用 vcpkg 提供）-----
 find_package(SFML COMPONENTS Network Graphics Window CONFIG REQUIRED)
 find_package(directxtex CONFIG REQUIRED)
@@ -67,8 +67,8 @@ set_target_properties(assimp::assimp PROPERTIES
 )
 
 # ----- 源文件收集 -----
-file(GLOB_RECURSE HEADERS "src**/*.hpp" "src/**/*.h")
-file(GLOB_RECURSE SOURCES "src/**/*.cpp" "src/**/*.c")
+file(GLOB_RECURSE HEADERS "src/*.hpp" "src/*.h")
+file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.c")
 
 # ----- 可执行文件 -----
 add_executable(golfgame

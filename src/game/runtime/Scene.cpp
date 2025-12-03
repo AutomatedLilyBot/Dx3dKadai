@@ -1,9 +1,9 @@
 #include "Scene.hpp"
-#include "../entity/StaticEntity.hpp"
-#include "../entity/DynamicEntity.hpp"
-#include "../entity/SpawnerEntity.hpp"
-#include "../entity/BallEntity.hpp"
-#include "../src/core/gfx/ModelLoader.hpp"
+#include "game/entity/StaticEntity.hpp"
+#include "game/entity/DynamicEntity.hpp"
+#include "game/entity/SpawnerEntity.hpp"
+#include "game/entity/BallEntity.hpp"
+#include "core/gfx/ModelLoader.hpp"
 #include <windows.h>
 #include <string>
 
@@ -75,7 +75,7 @@ void Scene::init(Renderer *renderer) {
         if (loaded) plat->modelRef = &platformModel;
         plat->transform.scale = {10.0f, 10.0f, 1.0f};
         plat->transform.position = {0.0f, -2.0f, 0.0f};
-        plat->transform.rotationEuler = {XM_PIDIV2, 0, 0};
+        plat->transform.rotationEuler = {XM_PIDIV2, 0, XM_PIDIV2*0.2f};
         // 物理：OBB 半尺寸与缩放相匹配（简化处理）
         plat->collider = MakeObbCollider(XMFLOAT3{10.0f, 10.0, 1.0f});
         plat->collider->setDebugEnabled(true);
@@ -236,8 +236,21 @@ void Scene::submitCommands() {
     for (auto &dc: cmdBuffer_.toDestroy) {
         auto it = id2ptr_.find(dc.id);
         if (it != id2ptr_.end()) {
+            // 1. 调用 onDestroy() 生命周期钩子（实体仍在场景中，可访问其他实体）
+            WorldContext destroyCtx{};
+            destroyCtx.time = time_;
+            destroyCtx.dt = 0.0f;
+            EntityQuery entityQueryForDestroy{};
+            entityQueryForDestroy.entityMap = &id2ptr_;
+            destroyCtx.physics = &query_;
+            destroyCtx.entities = &entityQueryForDestroy;
+            destroyCtx.commands = &cmdBuffer_;
+            it->second->onDestroy(destroyCtx);
+
+            // 2. 反注册物理
             unregisterEntity(dc.id);
-            // 从容器移除
+
+            // 3. 从容器移除
             for (size_t i = 0; i < entities_.size(); ++i) {
                 if (entities_[i].get() == it->second) {
                     entities_.erase(entities_.begin() + i);
