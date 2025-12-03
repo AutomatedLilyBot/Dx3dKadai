@@ -18,19 +18,29 @@ struct WorldContext; // 前置声明
 struct IEntity : public IDrawable {
     virtual ~IEntity() = default;
 
-    virtual EntityId id() const = 0;
+    [[nodiscard]] virtual EntityId id() const = 0;
+
+    virtual void setId(EntityId eid) = 0;
 
     virtual Transform &transformRef() = 0;
 
     virtual std::span<ColliderBase *> colliders() = 0; // 只读访问裸指针集合
     virtual RigidBody *rigidBody() = 0; // 静态体返回 nullptr
 
+    // 生命周期钩子：实体完全注册后调用（可访问其他实体、已分配ID）
+    virtual void init(WorldContext & /*ctx*/) {
+    }
+
+    // 生命周期钩子：实体销毁前调用（仍在场景中、仍可访问其他实体）
+    virtual void onDestroy(WorldContext & /*ctx*/) {
+    }
+
     // 每帧逻辑入口（由场景在物理步后调用）
     virtual void update(WorldContext & /*ctx*/, float /*dt*/) {
     }
 
-    // 触发器事件（场景从 PhysicsWorld 回调路由到具体实体）
-    virtual void onTrigger(WorldContext & /*ctx*/, EntityId /*other*/, TriggerPhase /*phase*/,
-                           const OverlapResult & /*c*/) {
+    // 碰撞/触发事件（场景从 PhysicsWorld 回调路由到具体实体）
+    virtual void onCollision(WorldContext & /*ctx*/, EntityId /*other*/, TriggerPhase /*phase*/,
+                             const OverlapResult & /*c*/) {
     }
 };

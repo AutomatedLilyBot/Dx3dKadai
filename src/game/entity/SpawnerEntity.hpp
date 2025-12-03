@@ -6,7 +6,7 @@ class SpawnerEntity : public StaticEntity {
 public:
     float spawnInterval = 0.25f;
     float cooldown = 0.0f;
-    float ballRadius = 0.25f;
+    float ballRadius = 10.0f;
     float spawnYOffset = -0.6f; // 相对自身原点向下偏移
 
     void update(WorldContext &ctx, float dt) override {

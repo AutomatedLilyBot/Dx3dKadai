@@ -25,13 +25,14 @@ namespace {
 
         ColliderType kind() const override { return ColliderType::Sphere; }
 
+        // 局部偏移（相对 Owner）
         bool setPosition(const XMFLOAT3 &pos) override {
-            m_pos = pos;
+            m_localOffset = pos;
             return true;
         }
 
         bool setRotationEuler(const XMFLOAT3 &rotEuler) override {
-            m_rot = rotEuler;
+            m_localRot = rotEuler;
             return true;
         }
 
@@ -43,11 +44,28 @@ namespace {
             return true;
         }
 
-        XMFLOAT3 position() const override { return m_pos; }
-        XMFLOAT3 rotationEuler() const override { return m_rot; }
+        XMFLOAT3 position() const override { return m_localOffset; }
+        XMFLOAT3 rotationEuler() const override { return m_localRot; }
         XMFLOAT3 scale() const override { return m_scl; }
 
-        XMMATRIX world() const override { return MakeWorld(m_pos, m_rot, m_scl); }
+        // 组合 Owner 世界位姿 + 局部偏移/旋转
+        XMMATRIX world() const override {
+            XMMATRIX S = XMMatrixScaling(m_scl.x, m_scl.y, m_scl.z);
+            XMMATRIX Rowner = XMMatrixRotationRollPitchYaw(m_ownerRot.x, m_ownerRot.y, m_ownerRot.z);
+            XMMATRIX Rlocal = XMMatrixRotationRollPitchYaw(m_localRot.x, m_localRot.y, m_localRot.z);
+            XMMATRIX R = Rlocal * Rowner; // 先局部再跟随 Owner
+            // 世界中心 = ownerPos + Rowner * localOffset（Sphere 对旋转不敏感，仅用于偏移）
+            XMVECTOR off = XMVectorSet(m_localOffset.x, m_localOffset.y, m_localOffset.z, 0);
+            off = XMVector3TransformNormal(off, Rowner);
+            XMFLOAT3 centerW{m_ownerPos.x, m_ownerPos.y, m_ownerPos.z};
+            XMVECTOR c = XMVectorSet(centerW.x, centerW.y, centerW.z, 1.0f);
+            c = XMVectorAdd(c, off);
+            XMFLOAT3 cw{};
+            XMStoreFloat3(&cw, c);
+            XMMATRIX T = XMMatrixTranslation(cw.x, cw.y, cw.z);
+            return S * R * T;
+        }
+
         bool updateDerived() override { return true; }
 
         Aabb aabb() const override {
@@ -74,11 +92,31 @@ namespace {
         // Sphere specifics
         float radiusLocal() const override { return m_radiusLocal; }
         float radiusWorld() const override { return m_radiusLocal * m_scl.x; }
-        XMFLOAT3 centerWorld() const override { return m_pos; }
+
+        XMFLOAT3 centerWorld() const override {
+            XMMATRIX Rowner = XMMatrixRotationRollPitchYaw(m_ownerRot.x, m_ownerRot.y, m_ownerRot.z);
+            XMVECTOR off = XMVectorSet(m_localOffset.x, m_localOffset.y, m_localOffset.z, 0);
+            off = XMVector3TransformNormal(off, Rowner);
+            XMVECTOR base = XMVectorSet(m_ownerPos.x, m_ownerPos.y, m_ownerPos.z, 1.0f);
+            XMVECTOR c = XMVectorAdd(base, off);
+            XMFLOAT3 cw{};
+            XMStoreFloat3(&cw, c);
+            return cw;
+        }
+
+        // Owner 世界位姿注入/读取
+        void setOwnerWorldPosition(const XMFLOAT3 &ownerPosW) override { m_ownerPos = ownerPosW; }
+        void setOwnerWorldRotationEuler(const XMFLOAT3 &ownerRotEulerW) override { m_ownerRot = ownerRotEulerW; }
+        XMFLOAT3 ownerWorldPosition() const override { return m_ownerPos; }
+        XMFLOAT3 ownerWorldRotationEuler() const override { return m_ownerRot; }
 
     private:
-        XMFLOAT3 m_pos{0, 0, 0};
-        XMFLOAT3 m_rot{0, 0, 0};
+        // Owner 世界位姿
+        XMFLOAT3 m_ownerPos{0, 0, 0};
+        XMFLOAT3 m_ownerRot{0, 0, 0};
+        // 局部偏移/旋转（相对 Owner）
+        XMFLOAT3 m_localOffset{0, 0, 0};
+        XMFLOAT3 m_localRot{0, 0, 0};
         XMFLOAT3 m_scl{1, 1, 1};
         float m_radiusLocal{0};
         bool m_dbgEnabled{false};
@@ -95,12 +133,12 @@ namespace {
         ColliderType kind() const override { return ColliderType::Obb; }
 
         bool setPosition(const XMFLOAT3 &pos) override {
-            m_pos = pos;
+            m_localOffset = pos;
             return true;
         }
 
         bool setRotationEuler(const XMFLOAT3 &rotEuler) override {
-            m_rot = rotEuler;
+            m_localRot = rotEuler;
             return true;
         }
 
@@ -110,11 +148,25 @@ namespace {
             return true;
         }
 
-        XMFLOAT3 position() const override { return m_pos; }
-        XMFLOAT3 rotationEuler() const override { return m_rot; }
+        XMFLOAT3 position() const override { return m_localOffset; }
+        XMFLOAT3 rotationEuler() const override { return m_localRot; }
         XMFLOAT3 scale() const override { return m_scl; }
 
-        XMMATRIX world() const override { return MakeWorld(m_pos, m_rot, m_scl); }
+        XMMATRIX world() const override {
+            XMMATRIX S = XMMatrixScaling(m_scl.x, m_scl.y, m_scl.z);
+            XMMATRIX Rowner = XMMatrixRotationRollPitchYaw(m_ownerRot.x, m_ownerRot.y, m_ownerRot.z);
+            XMMATRIX Rlocal = XMMatrixRotationRollPitchYaw(m_localRot.x, m_localRot.y, m_localRot.z);
+            XMMATRIX R = Rlocal * Rowner;
+            XMVECTOR off = XMVectorSet(m_localOffset.x, m_localOffset.y, m_localOffset.z, 0);
+            off = XMVector3TransformNormal(off, Rowner);
+            XMVECTOR base = XMVectorSet(m_ownerPos.x, m_ownerPos.y, m_ownerPos.z, 1.0f);
+            XMVECTOR c = XMVectorAdd(base, off);
+            XMFLOAT3 cw{};
+            XMStoreFloat3(&cw, c);
+            XMMATRIX T = XMMatrixTranslation(cw.x, cw.y, cw.z);
+            return S * R * T;
+        }
+
         bool updateDerived() override { return true; }
 
         Aabb aabb() const override {
@@ -149,11 +201,28 @@ namespace {
         void setIsTrigger(bool trigger) override { m_isTrigger = trigger; }
         bool isTrigger() const override { return m_isTrigger; }
 
+        // Owner 世界位姿注入/读取
+        void setOwnerWorldPosition(const XMFLOAT3 &ownerPosW) override { m_ownerPos = ownerPosW; }
+        void setOwnerWorldRotationEuler(const XMFLOAT3 &ownerRotEulerW) override { m_ownerRot = ownerRotEulerW; }
+        XMFLOAT3 ownerWorldPosition() const override { return m_ownerPos; }
+        XMFLOAT3 ownerWorldRotationEuler() const override { return m_ownerRot; }
+
         // OBB specifics
-        XMFLOAT3 centerWorld() const override { return m_pos; }
+        XMFLOAT3 centerWorld() const override {
+            XMMATRIX Rowner = XMMatrixRotationRollPitchYaw(m_ownerRot.x, m_ownerRot.y, m_ownerRot.z);
+            XMVECTOR off = XMVectorSet(m_localOffset.x, m_localOffset.y, m_localOffset.z, 0);
+            off = XMVector3TransformNormal(off, Rowner);
+            XMVECTOR base = XMVectorSet(m_ownerPos.x, m_ownerPos.y, m_ownerPos.z, 1.0f);
+            XMVECTOR c = XMVectorAdd(base, off);
+            XMFLOAT3 cw{};
+            XMStoreFloat3(&cw, c);
+            return cw;
+        }
 
         void axesWorld(XMFLOAT3 outAxes[3]) const override {
-            XMMATRIX R = XMMatrixRotationRollPitchYaw(m_rot.x, m_rot.y, m_rot.z);
+            XMMATRIX Rowner = XMMatrixRotationRollPitchYaw(m_ownerRot.x, m_ownerRot.y, m_ownerRot.z);
+            XMMATRIX Rlocal = XMMatrixRotationRollPitchYaw(m_localRot.x, m_localRot.y, m_localRot.z);
+            XMMATRIX R = Rlocal * Rowner;
             // Transform unit basis to get world-space orientation (ignoring scale and translation)
             XMVECTOR x = XMVector3TransformNormal(XMVectorSet(1, 0, 0, 0), R);
             XMVECTOR y = XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), R);
@@ -172,8 +241,10 @@ namespace {
         }
 
     private:
-        XMFLOAT3 m_pos{0, 0, 0};
-        XMFLOAT3 m_rot{0, 0, 0};
+        XMFLOAT3 m_ownerPos{0, 0, 0};
+        XMFLOAT3 m_ownerRot{0, 0, 0};
+        XMFLOAT3 m_localOffset{0, 0, 0};
+        XMFLOAT3 m_localRot{0, 0, 0};
         XMFLOAT3 m_scl{1, 1, 1};
         XMFLOAT3 m_halfLocal{0.5f, 0.5f, 0.5f};
         bool m_dbgEnabled{false};
@@ -191,12 +262,12 @@ namespace {
         ColliderType kind() const override { return ColliderType::Capsule; }
 
         bool setPosition(const XMFLOAT3 &pos) override {
-            m_pos = pos;
+            m_localOffset = pos;
             return true;
         }
 
         bool setRotationEuler(const XMFLOAT3 &rotEuler) override {
-            m_rot = rotEuler;
+            m_localRot = rotEuler;
             return true;
         }
 
@@ -221,11 +292,25 @@ namespace {
             return true;
         }
 
-        XMFLOAT3 position() const override { return m_pos; }
-        XMFLOAT3 rotationEuler() const override { return m_rot; }
+        XMFLOAT3 position() const override { return m_localOffset; }
+        XMFLOAT3 rotationEuler() const override { return m_localRot; }
         XMFLOAT3 scale() const override { return m_scl; }
 
-        XMMATRIX world() const override { return MakeWorld(m_pos, m_rot, m_scl); }
+        XMMATRIX world() const override {
+            XMMATRIX S = XMMatrixScaling(m_scl.x, m_scl.y, m_scl.z);
+            XMMATRIX Rowner = XMMatrixRotationRollPitchYaw(m_ownerRot.x, m_ownerRot.y, m_ownerRot.z);
+            XMMATRIX Rlocal = XMMatrixRotationRollPitchYaw(m_localRot.x, m_localRot.y, m_localRot.z);
+            XMMATRIX R = Rlocal * Rowner;
+            XMVECTOR off = XMVectorSet(m_localOffset.x, m_localOffset.y, m_localOffset.z, 0);
+            off = XMVector3TransformNormal(off, Rowner);
+            XMVECTOR base = XMVectorSet(m_ownerPos.x, m_ownerPos.y, m_ownerPos.z, 1.0f);
+            XMVECTOR c = XMVectorAdd(base, off);
+            XMFLOAT3 cw{};
+            XMStoreFloat3(&cw, c);
+            XMMATRIX T = XMMatrixTranslation(cw.x, cw.y, cw.z);
+            return S * R * T;
+        }
+
         bool updateDerived() override { return true; }
 
         Aabb aabb() const override {
@@ -252,11 +337,25 @@ namespace {
         void setIsTrigger(bool trigger) override { m_isTrigger = trigger; }
         bool isTrigger() const override { return m_isTrigger; }
 
+        // Owner 世界位姿注入/读取
+        void setOwnerWorldPosition(const XMFLOAT3 &ownerPosW) override { m_ownerPos = ownerPosW; }
+        void setOwnerWorldRotationEuler(const XMFLOAT3 &ownerRotEulerW) override { m_ownerRot = ownerRotEulerW; }
+        XMFLOAT3 ownerWorldPosition() const override { return m_ownerPos; }
+        XMFLOAT3 ownerWorldRotationEuler() const override { return m_ownerRot; }
+
         // Capsule specifics
         std::pair<XMFLOAT3, XMFLOAT3> segmentWorld() const override {
             XMMATRIX S = XMMatrixScaling(m_scl.x, m_scl.y, m_scl.z);
-            XMMATRIX R = XMMatrixRotationRollPitchYaw(m_rot.x, m_rot.y, m_rot.z);
-            XMMATRIX T = XMMatrixTranslation(m_pos.x, m_pos.y, m_pos.z);
+            XMMATRIX Rowner = XMMatrixRotationRollPitchYaw(m_ownerRot.x, m_ownerRot.y, m_ownerRot.z);
+            XMMATRIX Rlocal = XMMatrixRotationRollPitchYaw(m_localRot.x, m_localRot.y, m_localRot.z);
+            XMMATRIX R = Rlocal * Rowner;
+            XMVECTOR off = XMVectorSet(m_localOffset.x, m_localOffset.y, m_localOffset.z, 0);
+            off = XMVector3TransformNormal(off, Rowner);
+            XMVECTOR base = XMVectorSet(m_ownerPos.x, m_ownerPos.y, m_ownerPos.z, 1.0f);
+            XMVECTOR c = XMVectorAdd(base, off);
+            XMFLOAT3 cw{};
+            XMStoreFloat3(&cw, c);
+            XMMATRIX T = XMMatrixTranslation(cw.x, cw.y, cw.z);
             XMMATRIX M = S * R * T;
             XMVECTOR p0 = XMVectorSet(m_p0Local.x, m_p0Local.y, m_p0Local.z, 1.0f);
             XMVECTOR p1 = XMVectorSet(m_p1Local.x, m_p1Local.y, m_p1Local.z, 1.0f);
@@ -295,8 +394,10 @@ namespace {
             return u;
         }
 
-        XMFLOAT3 m_pos{0, 0, 0};
-        XMFLOAT3 m_rot{0, 0, 0};
+        XMFLOAT3 m_ownerPos{0, 0, 0};
+        XMFLOAT3 m_ownerRot{0, 0, 0};
+        XMFLOAT3 m_localOffset{0, 0, 0};
+        XMFLOAT3 m_localRot{0, 0, 0};
         XMFLOAT3 m_scl{1, 1, 1};
         XMFLOAT3 m_p0Local{0, -0.5f, 0};
         XMFLOAT3 m_p1Local{0, 0.5f, 0};

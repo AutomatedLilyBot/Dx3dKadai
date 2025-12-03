@@ -19,8 +19,8 @@ using EntityId = uint32_t;
 // 物理世界参数（运行期可调）
 struct WorldParams {
     DirectX::XMFLOAT3 gravity{0, -9.8f, 0};
-    float maxSpeed = 1e9f; // 可选速度上限
-    int substeps = 1; // 子步数量（>1 可减少穿透）
+    float maxSpeed = 100.0f; // 可选速度上限
+    int substeps = 3; // 子步数量（>1 可减少穿透）
     SolverParams solver; // 解算器参数（iterations/slop/beta）
 };
 
@@ -51,6 +51,16 @@ public:
 
     // 触发器事件回调（可选）
     void setTriggerCallback(TriggerCallback cb) { onTrigger_ = std::move(cb); }
+
+    // —— 新增：从外部 Owner Transform 同步到物理体 ——
+    // 用途：当游戏层直接改动实体 Transform（传送/拖拽/重置）时，在物理步开始前调用该接口，
+    // 若位置与当前 BodyState 不一致，则以 Owner 的位置为准覆盖，并可选清零速度（避免残余动量）。
+    // 说明：当前解算仅支持线性部分，rotEulerW 仅用于将 Owner 世界朝向注入到 Collider（影响派生世界矩阵/调试绘制），
+    // 不参与动力学计算。
+    void syncOwnerTransform(EntityId e,
+                            const DirectX::XMFLOAT3 &posW,
+                            const DirectX::XMFLOAT3 &rotEulerW,
+                            bool resetVelocityOnChange = true);
 
 private:
     // 内部过程

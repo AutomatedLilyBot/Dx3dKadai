@@ -70,11 +70,15 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
     if (!device) return false;
 
     Assimp::Importer importer;
+
+    // Force file unit to meters (1.0 = 1 meter)
+    //importer.SetPropertyFloat(AI_CONFIG_GLOBAL_SCALE_FACTOR_KEY, 0.01f); // FBX通常是厘米，转换为米
+
     unsigned int flags = 0
                          | aiProcessPreset_TargetRealtime_MaxQuality
                          | aiProcess_PreTransformVertices
-                         | aiProcess_ConvertToLeftHanded
-                         | aiProcess_GlobalScale;
+                         | aiProcess_ConvertToLeftHanded;
+    //| aiProcess_GlobalScale;  // 启用全局缩放
 
     const std::string path8 = WStringToUTF8(filepath);
     const aiScene *scene = importer.ReadFile(path8.c_str(), flags);
@@ -249,6 +253,10 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
     if (!device) return false;
 
     Assimp::Importer importer;
+
+    // Force file unit to meters (1.0 = 1 meter)
+    //importer.SetPropertyFloat(AI_CONFIG_GLOBAL_SCALE_FACTOR_KEY, 100.0f); // FBX通常是厘米，转换为米
+
     unsigned int flags = 0
                          | aiProcess_Triangulate
                          | aiProcess_JoinIdenticalVertices
@@ -257,8 +265,8 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                          | aiProcess_SortByPType
                          | aiProcess_ConvertToLeftHanded
                          | aiProcess_FlipUVs
-                         | aiProcess_GlobalScale
                          | aiProcess_FixInfacingNormals;
+    //| aiProcess_GlobalScale;
 
     const std::string path8 = WStringToUTF8(filepath);
     const aiScene *scene = importer.ReadFile(path8.c_str(), flags);

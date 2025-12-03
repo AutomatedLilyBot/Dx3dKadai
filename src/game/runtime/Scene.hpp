@@ -31,6 +31,9 @@ public:
     // 访问底层 PhysicsWorld（后续可移除）
     PhysicsWorld &physics() { return world_; }
 
+    // 访问 Renderer（用于实体工厂）
+    Renderer *renderer() { return renderer_; }
+
 private:
     void buildPhysicsQueryFromLastFrame();
 
@@ -61,4 +64,15 @@ private:
     // 触发器重叠缓存（entity→set），由物理回调维护
     std::unordered_map<EntityId, std::unordered_set<EntityId> > triggerOverlaps_;
     std::unordered_map<EntityId, std::unordered_set<EntityId> > tempTriggerOverlaps_;
+
+    // 碰撞事件缓存（物理回调 → 帧内派发）
+    struct CollisionEvent {
+        EntityId a{0};
+        EntityId b{0};
+        TriggerPhase phase{TriggerPhase::Stay};
+        OverlapResult contact{};
+    };
+
+    std::vector<CollisionEvent> tempCollisionEvents_;
+    std::vector<CollisionEvent> frameCollisionEvents_;
 };

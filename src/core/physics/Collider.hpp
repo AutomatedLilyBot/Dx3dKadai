@@ -1,13 +1,17 @@
 #pragma once
 #pragma execution_character_set("utf-8")
-// 新一代碰撞体接口（仅草案/头文件，暂无实现）
-// 说明：
+// 新一代碰撞体接口
+// 设计要点（本次修正）：
 // - 仅支持三类：Sphere、OBB、Capsule。
-// - 每个碰撞体自持位移/旋转/缩放，并通过更新接口（返回 bool）强制缩放约束：
-//   - Sphere：仅允许均匀缩放（sx==sy==sz）。
-//   - Capsule：仅允许沿长轴改变长度；半径方向必须等比缩放。
-//   - OBB：允许任意非均匀缩放。
-// - 本文件只定义接口与数据结构；算法与实现留待后续阶段。
+// - “世界位姿不再由 Collider 自己持有与决定”。Collider 不再有独立的“世界位置/旋转”概念，
+//   其世界位姿完全由“Owner 的世界位姿 + 自身局部偏移/局部旋转偏移 + 自身缩放”共同决定。
+// - Collider 持有：
+//   1) 局部偏移（position local offset）与局部旋转偏移（rotation local offset）
+//   2) 自身缩放（scale）
+//   3) Owner 的世界位姿（由上层注入，仅记录，不做权属）
+// - 上层（Scene/PhysicsWorld）在每帧同步时调用 setOwnerWorld... 接口注入 Owner 世界位姿；
+//   业务侧设置/读取 setPosition()/rotationEuler() 则表示局部偏移/局部旋转偏移，而非世界变换。
+// - 首期算法仍然根据上述组合求得 centerWorld()/axesWorld()/segmentWorld() 等派生量。
 
 #include <cstdint>
 #include <vector>
@@ -52,13 +56,14 @@ public:
     // 类型查询
     virtual ColliderType kind() const = 0;
 
-    // 变换：位置/旋转（欧拉）/缩放。违反约束时返回 false 并且不改变内部状态。
-    virtual bool setPosition(const DirectX::XMFLOAT3 &pos) = 0;
+    // 变换：局部偏移位置/局部偏移旋转（欧拉）/缩放。违反约束时返回 false 并且不改变内部状态。
+    // 注意：setPosition/setRotationEuler 语义已改为【局部偏移】而非世界！
+    virtual bool setPosition(const DirectX::XMFLOAT3 &posLocalOffset) = 0;
 
-    virtual bool setRotationEuler(const DirectX::XMFLOAT3 &rotEuler) = 0; // pitch, yaw, roll（弧度）
+    virtual bool setRotationEuler(const DirectX::XMFLOAT3 &rotEulerLocalOffset) = 0; // pitch, yaw, roll（弧度）
     virtual bool setScale(const DirectX::XMFLOAT3 &scale) = 0;
 
-    // 读取当前 TRS
+    // 读取当前局部偏移 TRS（非世界）
     virtual DirectX::XMFLOAT3 position() const = 0;
 
     virtual DirectX::XMFLOAT3 rotationEuler() const = 0;
@@ -95,6 +100,16 @@ public:
     virtual void setIsTrigger(bool trigger) = 0;
 
     virtual bool isTrigger() const = 0;
+
+    // —— 新增：Owner 世界位姿注入/读取 ——
+    // 上层每帧应调用以下接口将 Owner 世界位姿写入 Collider（仅存储，不做所有权）。
+    virtual void setOwnerWorldPosition(const DirectX::XMFLOAT3 &ownerPosW) = 0;
+
+    virtual void setOwnerWorldRotationEuler(const DirectX::XMFLOAT3 &ownerRotEulerW) = 0;
+
+    virtual DirectX::XMFLOAT3 ownerWorldPosition() const = 0;
+
+    virtual DirectX::XMFLOAT3 ownerWorldRotationEuler() const = 0;
 };
 
 // Sphere：局部参数为 centerLocal（可选）+ radiusLocal；世界半径=radiusLocal*uniformScale

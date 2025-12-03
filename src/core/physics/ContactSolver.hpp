@@ -16,6 +16,7 @@ struct SolverParams {
 struct BodyState {
     DirectX::XMFLOAT3 p{0, 0, 0};
     DirectX::XMFLOAT3 v{0, 0, 0};
+    DirectX::XMFLOAT3 pPrev{0, 0, 0}; // 上一帧位置（用于碰撞回退）
     float invMass = 1.0f;
     float restitution = 0.2f;
     float muS = 0.6f;
