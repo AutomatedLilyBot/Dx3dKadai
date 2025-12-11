@@ -52,7 +52,7 @@ bool Mesh::createQuadXY(ID3D11Device *dev, float w, float h, float z) {
 bool Mesh::createCube(ID3D11Device *dev, float h) {
     // Define 8 unique vertices with proper normals and UVs for each face
     // We need 24 vertices (4 per face * 6 faces) for proper normals per face
-    const VertexPNCT v[] = {
+    m_vertices = {
         // Back face (Z-)
         {{-h, -h, -h}, {0, 0, -1}, {1, 1, 1, 1}, {1.0 / 4, 3.0 / 4}},
         {{-h, h, -h}, {0, 0, -1}, {1, 1, 1, 1}, {1.0 / 4, 1.0 / 4}},
@@ -90,7 +90,7 @@ bool Mesh::createCube(ID3D11Device *dev, float h) {
         {{h, -h, h}, {0, -1, 0}, {1, 1, 1, 1}, {1, 1}},
     };
 
-    const uint16_t idx[] = {
+    m_indices = {
         // Back face (Z-) - clockwise from outside (swapped to match FBX)
         0, 1, 2, 0, 2, 3,
         // Front face (Z+) - clockwise from outside
@@ -105,22 +105,21 @@ bool Mesh::createCube(ID3D11Device *dev, float h) {
         20, 21, 22, 20, 22, 23
     };
 
-
-    m_indexCount = (UINT) std::size(idx);
+    m_indexCount = (UINT) m_indices.size();
     m_stride = sizeof(VertexPNCT);
 
     D3D11_BUFFER_DESC bd{};
     D3D11_SUBRESOURCE_DATA sd{};
     bd.Usage = D3D11_USAGE_DEFAULT;
 
-    bd.ByteWidth = (UINT) sizeof(v);
+    bd.ByteWidth = (UINT) (m_vertices.size() * sizeof(VertexPNCT));
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    sd.pSysMem = v;
+    sd.pSysMem = m_vertices.data();
     if (FAILED(dev->CreateBuffer(&bd, &sd, m_vb.ReleaseAndGetAddressOf()))) return false;
 
-    bd.ByteWidth = (UINT) sizeof(idx);
+    bd.ByteWidth = (UINT) (m_indices.size() * sizeof(uint16_t));
     bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    sd.pSysMem = idx;
+    sd.pSysMem = m_indices.data();
     if (FAILED(dev->CreateBuffer(&bd, &sd, m_ib.ReleaseAndGetAddressOf()))) return false;
 
     return true;
@@ -131,21 +130,25 @@ bool Mesh::createFromPNCT(ID3D11Device *dev,
                           const std::vector<uint16_t> &indices) {
     if (vertices.empty() || indices.empty()) return false;
 
-    m_indexCount = (UINT) indices.size();
+    // Store CPU-side copy
+    m_vertices = vertices;
+    m_indices = indices;
+
+    m_indexCount = (UINT) m_indices.size();
     m_stride = sizeof(VertexPNCT);
 
     D3D11_BUFFER_DESC bd{};
     D3D11_SUBRESOURCE_DATA sd{};
     bd.Usage = D3D11_USAGE_DEFAULT;
 
-    bd.ByteWidth = (UINT)(vertices.size() * sizeof(VertexPNCT));
+    bd.ByteWidth = (UINT) (m_vertices.size() * sizeof(VertexPNCT));
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    sd.pSysMem = vertices.data();
+    sd.pSysMem = m_vertices.data();
     if (FAILED(dev->CreateBuffer(&bd, &sd, m_vb.ReleaseAndGetAddressOf()))) return false;
 
-    bd.ByteWidth = (UINT)(indices.size() * sizeof(uint16_t));
+    bd.ByteWidth = (UINT) (m_indices.size() * sizeof(uint16_t));
     bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    sd.pSysMem = indices.data();
+    sd.pSysMem = m_indices.data();
     if (FAILED(dev->CreateBuffer(&bd, &sd, m_ib.ReleaseAndGetAddressOf()))) return false;
 
     return true;

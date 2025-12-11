@@ -68,7 +68,7 @@ int main()
 				e->modelRef = &cubeModel; // lifetime note: cubeModel lives until main ends
 				e->transform.position = {(float) x * 0.1f, 0.0f, (float) z * 0.1f};
 				e->transform.scale = {10.0f, 10.0f, 10.0f};
-				e->transform.rotationEuler = {XM_PIDIV2, 0, 0};
+				e->transform.setRotationEuler(XM_PIDIV2, 0, 0);
 				field.add(std::move(e));
 			}
 		}
@@ -86,7 +86,7 @@ int main()
 			auto t = std::make_unique<StaticEntity>();
 			t->modelRef = &treeModel;
 			t->transform.scale = {10.0f, 10.0f, 10.0f};
-			t->transform.rotationEuler = {XM_PIDIV2, 0, 0};
+			t->transform.setRotationEuler(XM_PIDIV2, 0, 0);
 			t->transform.position = {x, 0, z}; // slightly above the cubes
 			field.add(std::move(t));
 		}

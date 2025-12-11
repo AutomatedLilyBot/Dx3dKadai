@@ -10,7 +10,7 @@
 struct RigidBody {
     DirectX::XMFLOAT3 position{0, 0, 0};
     DirectX::XMFLOAT3 velocity{0, 0, 0};
-
+    DirectX::XMFLOAT3 forceAccum{0, 0, 0};
     // 逆质量：0 表示静态
     float invMass = 1.0f;
 
@@ -21,4 +21,28 @@ struct RigidBody {
 
     // 注册索引：由 PhysicsWorld 赋值（-1 表示未注册）
     int bodyIdx = -1;
+
+    bool isStatic() const { return invMass == 0.0f; }
+
+    void applyForce(const DirectX::XMFLOAT3 &f) {
+        if (isStatic()) return;
+        forceAccum.x += f.x;
+        forceAccum.y += f.y;
+        forceAccum.z += f.z;
+    }
+
+    // 施加瞬时冲量（立即改变速度）
+    void applyImpulse(const DirectX::XMFLOAT3 &impulse) {
+        if (isStatic()) return;
+        using namespace DirectX;
+        DirectX::XMVECTOR v = XMLoadFloat3(&velocity);
+        DirectX::XMVECTOR j = XMLoadFloat3(&impulse);
+        v = XMVectorAdd(v, XMVectorScale(j, invMass));
+        XMStoreFloat3(&velocity, v);
+    }
+
+    void clearForces() {
+        forceAccum = {0, 0, 0};
+    }
+
 };

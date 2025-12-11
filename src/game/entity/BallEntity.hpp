@@ -10,7 +10,7 @@ public:
         modelOwned = std::make_unique<Model>();
         ModelLoader::LoadFBX(dev, modelPath, *modelOwned);
         modelRef = modelOwned.get();
-        collider = MakeSphereCollider(radius);
+        collider_ = MakeSphereCollider(radius);
         rb.invMass = 1.0f; // 动态体
     }
 

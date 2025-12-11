@@ -24,7 +24,8 @@ struct IEntity : public IDrawable {
 
     virtual Transform &transformRef() = 0;
 
-    virtual std::span<ColliderBase *> colliders() = 0; // 只读访问裸指针集合
+    virtual ColliderBase *collider() = 0; // 获取主 collider（最常用）
+    virtual std::span<ColliderBase *> colliders() = 0; // 访问所有 colliders（用于复合碰撞体）
     virtual RigidBody *rigidBody() = 0; // 静态体返回 nullptr
 
     // 生命周期钩子：实体完全注册后调用（可访问其他实体、已分配ID）

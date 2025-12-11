@@ -375,6 +375,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
     std::vector<int> meshMap(scene->mNumMeshes, -1);
 
     // Recursive traversal of nodes to collect draw items and create meshes when first seen
+    // 注意：坐标轴转换在顶点加载时手动完成（见下方顶点处理代码）
     std::function < void(const aiNode *, DirectX::XMMATRIX) > visit;
     visit = [&](const aiNode *node, DirectX::XMMATRIX parent) {
         DirectX::XMMATRIX local = ToXM(node->mTransformation);
@@ -390,9 +391,11 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                 for (unsigned int v = 0; v < aimesh->mNumVertices; ++v) {
                     VertexPNCT vp{};
                     aiVector3D p = aimesh->mVertices[v];
-                    vp.pos = DirectX::XMFLOAT3(p.x, p.y, p.z);
+                    // 手动坐标轴转换：匹配老师代码的映射方式
+                    // (x, y, z) -> (x, -z, y)
+                    vp.pos = DirectX::XMFLOAT3(p.x, -p.z, p.y);
                     aiVector3D n = aimesh->HasNormals() ? aimesh->mNormals[v] : aiVector3D(0, 1, 0);
-                    vp.normal = DirectX::XMFLOAT3(n.x, n.y, n.z);
+                    vp.normal = DirectX::XMFLOAT3(n.x, -n.z, n.y);
                     if (aimesh->HasTextureCoords(0)) {
                         aiVector3D t = aimesh->mTextureCoords[0][v];
                         vp.uv = DirectX::XMFLOAT2(t.x, t.y);

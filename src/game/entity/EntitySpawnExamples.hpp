@@ -37,7 +37,9 @@ void Example2_SpawnWithConfig(WorldContext &ctx) {
         ball->transform.scale = {0.5f, 0.5f, 0.5f};
 
         // 自定义调试颜色
-        ball->collider->setDebugColor(DirectX::XMFLOAT4(1, 0, 0, 1)); // 红色
+        if (ball->collider()) {
+            ball->collider()->setDebugColor(DirectX::XMFLOAT4(1, 0, 0, 1)); // 红色
+        }
     });
 }
 
@@ -141,7 +143,9 @@ void Example7_BatchSpawn(WorldContext &ctx) {
 
             // 每个球颜色不同
             float hue = static_cast<float>(i) / 10.0f;
-            ball->collider->setDebugColor(DirectX::XMFLOAT4(hue, 1 - hue, 0.5f, 1));
+            if (ball->collider()) {
+                ball->collider()->setDebugColor(DirectX::XMFLOAT4(hue, 1 - hue, 0.5f, 1));
+            }
         });
     }
 }
@@ -200,9 +204,9 @@ public:
  * 新方式：
  *   ctx.commands->spawn<BallEntity>([](BallEntity* ball) {
  *       ball->transform.position = {0, 3, 0};
- *       ball->rb.velocity = {1, 0, 0};      // 可以设置速度
- *       ball->rb.invMass = 0.5f;            // 可以设置质量
- *       ball->collider->setDebugColor(...); // 可以设置颜色
+ *       ball->rb.velocity = {1, 0, 0};       // 可以设置速度
+ *       ball->rb.invMass = 0.5f;             // 可以设置质量
+ *       ball->collider()->setDebugColor(...); // 可以设置颜色
  *       // ... 任意属性
  *   });
  */

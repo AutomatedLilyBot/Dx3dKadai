@@ -73,13 +73,15 @@ void Scene::init(Renderer *renderer) {
             loaded = ModelLoader::LoadFBX(renderer_->device(), cubePath, platformModel);
         }
         if (loaded) plat->modelRef = &platformModel;
-        plat->transform.scale = {10.0f, 10.0f, 1.0f};
-        plat->transform.position = {0.0f, -2.0f, 0.0f};
-        plat->transform.rotationEuler = {XM_PIDIV2, 0, XM_PIDIV2*0.2f};
+        plat->transform.scale = {10.0f, 1.0f, 10.0f};
+        plat->transform.position = {0.0f, -20.0f, 0.0f};
+        plat->transform.setRotationEuler(0, 0, 0);
+        plat->modelBias.setRotationEuler(0, 0, 0);
         // 物理：OBB 半尺寸与缩放相匹配（简化处理）
-        plat->collider = MakeObbCollider(XMFLOAT3{10.0f, 10.0, 1.0f});
-        plat->collider->setDebugEnabled(true);
-        plat->collider->setDebugColor(XMFLOAT4(1, 0, 0, 1));
+        plat->setCollider(MakeObbCollider(XMFLOAT3{10.0f, 2.0, 10.0f}));
+        plat->collider()->setDebugEnabled(true);
+        plat->collider()->setDebugColor(XMFLOAT4(1, 0, 0, 1));
+        plat->fitColliderToModel();
         // 注册
         registerEntity(*plat);
         id2ptr_[plat->id()] = plat.get();
@@ -93,8 +95,9 @@ void Scene::init(Renderer *renderer) {
         sp->modelRef = nullptr; // 不渲染
         sp->transform.position = {0.0f, 3.0f, 0.0f};
         sp->transform.scale = {1.0f, 1.0f, 1.0f};
-        sp->collider = MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}); // 增大到 0.5（覆盖球体生成区域）
-        sp->collider->setIsTrigger(true);
+        sp->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f})); // 增大到 0.5（覆盖球体生成区域）
+        sp->collider()->setIsTrigger(true);
+
         sp->spawnInterval = 0.15f;
         sp->ballRadius = 0.25f;
         sp->spawnYOffset = -0.5f; // 调整偏移，让球生成在 trigger 内部
@@ -123,7 +126,7 @@ void Scene::tick(float dt) {
         if (!ptr) continue;
 
         const auto &tr = ptr->transformRef();
-        world_.syncOwnerTransform(ptr->id(), tr.position, tr.rotationEuler, /*resetVelocityOnChange=*/false);
+        world_.syncOwnerTransform(ptr->id(), tr.position, tr.getRotationEuler(), /*resetVelocityOnChange=*/false);
     }
 
     // 1) 物理步
@@ -179,10 +182,16 @@ void Scene::render() {
         }
         auto span = ptr->colliders();
         std::vector<ColliderBase *> cols(span.begin(), span.end());
-        // 在注册前，将 collider 的位置与实体 Transform 对齐，确保静态体初始世界位姿正确
-        //（PhysicsWorld 注册静态体时会用 collider 的当前位置初始化内部 BodyState）
+        // 绘制碰撞体前，先同步 entity 的世界位姿到 collider（用于正确绘制）
         if (!cols.empty()) {
+            const XMFLOAT3 pos = ptr->transformRef().position;
+            const XMFLOAT3 rot = ptr->transformRef().getRotationEuler();
             for (auto *c: cols) {
+                if (!c) continue;
+                // 注入 Owner 世界位姿
+                c->setOwnerWorldPosition(pos);
+                c->setOwnerWorldRotationEuler(rot);
+                c->updateDerived();
                 renderer_->drawColliderWire(*c);
             }
         }
@@ -197,7 +206,7 @@ void Scene::registerEntity(IEntity &e) {
     //（PhysicsWorld 注册静态体时会用 collider 的当前位置初始化内部 BodyState）
     if (!cols.empty()) {
         const XMFLOAT3 pos = e.transformRef().position;
-        const XMFLOAT3 rot = e.transformRef().rotationEuler;
+        const XMFLOAT3 rot = e.transformRef().getRotationEuler();
         for (auto *c: cols) {
             if (!c) continue;
             // 注入 Owner 世界位姿（collider 的世界由此与其局部偏移共同决定）
@@ -322,8 +331,9 @@ void CommandBuffer::spawnBall(const DirectX::XMFLOAT3 &pos, float radius) {
         ball->transform.position = pos;
         ball->transform.scale = {radius, radius, radius};
         ball->rb.position = pos;
-        ball->collider->setDebugEnabled(true);
-        ball->collider->setDebugColor(DirectX::XMFLOAT4(0, 1, 0, 1));
+        ball->collider()->setDebugEnabled(true);
+        ball->collider()->setDebugColor(DirectX::XMFLOAT4(0, 1, 0, 1));
+        //ball->fitColliderToModel();
     };
 
     spawnEntities.push_back(std::move(cmd));
