@@ -1,5 +1,6 @@
-#include "BlockEntity.hpp"
+﻿#include "BlockEntity.hpp"
 #include "BulletEntity.hpp"
+#include "game/runtime/WorldContext.hpp"
 
 void BlockEntity::onCollision(WorldContext &ctx, EntityId other, TriggerPhase phase, const OverlapResult &c) {
     if (phase != TriggerPhase::Enter) return;

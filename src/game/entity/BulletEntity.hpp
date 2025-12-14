@@ -1,7 +1,9 @@
-#pragma once
+﻿#pragma once
 #include "DynamicEntity.hpp"
 #include "BlockEntity.hpp"
 #include <memory>
+
+#include "core/resource/ResourceManager.hpp"
 
 enum class NodeTeam {
     Friendly,
@@ -17,8 +19,14 @@ public:
 
     NodeTeam team = NodeTeam::Friendly;
     float power = 1.0f;
-    float minSpeedToLive = 1.0f;
+    float minSpeedToLive = 0.5f;  // 降低阈值，更快删除
+    float lifetime = 10.0f;        // 最大生命周期（秒）
+    float timeAlive = 0.0f;        // 已存活时间
 
+    // 使用 ResourceManager 初始化（推荐）
+    void initialize(float radius, const std::wstring &modelPath, ResourceManager *resMgr);
+
+    // 旧版本：直接使用 Device 加载（已废弃，保留兼容性）
     void initialize(float radius, const std::wstring &modelPath, ID3D11Device *dev);
     void update(WorldContext &ctx, float dt) override;
     void onCollision(WorldContext &ctx, EntityId other, TriggerPhase phase, const OverlapResult &c) override;

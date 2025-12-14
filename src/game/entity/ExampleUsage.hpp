@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "DynamicEntity.hpp"
 #include "../runtime/WorldContext.hpp"
 

@@ -1,4 +1,4 @@
-#include "ResourceManager.hpp"
+﻿#include "ResourceManager.hpp"
 
 Model *ResourceManager::getModel(const std::wstring &path) {
     auto it = models_.find(path);

@@ -1,4 +1,4 @@
-#include "ContactSolver.hpp"
+﻿#include "ContactSolver.hpp"
 #include <algorithm>
 #include <cmath>
 

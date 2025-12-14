@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #pragma execution_character_set("utf-8")
 
 #include <vector>
@@ -14,19 +14,32 @@
 // 前置声明
 struct IEntity;
 class Scene;
+class ResourceManager;
 
-// 只读物理查询视图（最小占位实现）：
-// 实际项目中应由 Scene 在每帧物理步后填充缓存数据。
+// 只读物理查询视图：
+// 由 Scene 在每帧物理步后填充，提供触发器重叠状态的快速查询。
 struct PhysicsQuery {
-    // 指向"本帧触发器重叠映射"：triggerEntity -> { other entity ids }
+    // 指向"本帧触发器重叠映射"：entityId -> { 与之重叠的其他实体 ids }
+    //
+    // 重要：此映射仅包含"涉及至少一个 Trigger 碰撞体"的碰撞对。
+    // - 如果实体 A 有触发器，实体 B 与 A 重叠，则 triggerOverlaps[A] 包含 B
+    // - 如果实体 B 也有触发器，则 triggerOverlaps[B] 也包含 A（双向记录）
+    // - 如果 A 和 B 都没有触发器（纯实体碰撞），则不会出现在此映射中
     const std::unordered_map<EntityId, std::unordered_set<EntityId> > *triggerOverlaps = nullptr;
 
+    // 检查指定实体是否有任何触发器正在与其他实体重叠
+    // 参数 e: 要查询的实体 ID（可以是拥有触发器的实体，也可以是与触发器重叠的实体）
+    // 返回: 如果该实体在触发器重叠映射中且有至少一个重叠对象，返回 true
     bool isAnyTriggerOverlapping(EntityId e) const {
         if (!triggerOverlaps) return false;
         auto it = triggerOverlaps->find(e);
         return it != triggerOverlaps->end() && !it->second.empty();
     }
 
+    // 检查两个特定实体之间是否存在触发器重叠
+    // 参数 triggerEntity: 拥有触发器的实体（或参与触发碰撞的任一方）
+    // 参数 withEntity: 另一个实体
+    // 返回: 如果这两个实体之间存在触发器重叠，返回 true
     bool isTriggerOverlapping(EntityId triggerEntity, EntityId withEntity) const {
         if (!triggerOverlaps) return false;
         auto it = triggerOverlaps->find(triggerEntity);
@@ -34,6 +47,14 @@ struct PhysicsQuery {
         return it->second.find(withEntity) != it->second.end();
     }
 
+    // 获取所有与指定实体的触发器重叠的其他实体列表
+    // 参数 triggerEntity: 要查询的实体 ID（通常是拥有触发器碰撞体的实体）
+    // 参数 out: 输出向量，将填充所有与该实体重叠的其他实体 ID
+    // 返回: 重叠实体的数量
+    //
+    // 用途示例：
+    // - SpawnerEntity 检查生成区域是否被占用
+    // - NodeEntity 检查发射区域内是否有敌方实体
     size_t getTriggerOverlappers(EntityId triggerEntity, std::vector<EntityId> &out) const {
         out.clear();
         if (!triggerOverlaps) return 0;
@@ -142,7 +163,8 @@ struct CommandBuffer {
 struct WorldContext {
     float time = 0.0f;
     float dt = 0.0f;
-    const PhysicsQuery *physics = nullptr; // 只读物理查询
-    const EntityQuery *entities = nullptr; // 只读实体查询
-    CommandBuffer *commands = nullptr; // 可写命令缓冲
+    const PhysicsQuery *physics = nullptr;   // 只读物理查询
+    const EntityQuery *entities = nullptr;   // 只读实体查询
+    CommandBuffer *commands = nullptr;       // 可写命令缓冲
+    ResourceManager *resources = nullptr;    // 资源管理器（用于加载模型/纹理）
 };

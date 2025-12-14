@@ -1,4 +1,4 @@
-#include "Texture.hpp"
+﻿#include "Texture.hpp"
 #include <DirectXTex.h>
 #include <wrl/client.h>
 #include <cwctype>

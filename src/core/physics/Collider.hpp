@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #pragma execution_character_set("utf-8")
 // 新一代碰撞体接口
 // 设计要点（本次修正）：
@@ -110,6 +110,12 @@ public:
     virtual DirectX::XMFLOAT3 ownerWorldPosition() const = 0;
 
     virtual DirectX::XMFLOAT3 ownerWorldRotationEuler() const = 0;
+
+    // 射线相交检测（用于鼠标拾取）
+    // 返回是否相交，如果相交则 outDistance 为相交点到射线起点的距离
+    virtual bool intersectsRay(const DirectX::XMFLOAT3 &rayOrigin,
+                               const DirectX::XMFLOAT3 &rayDir,
+                               float &outDistance) const = 0;
 };
 
 // Sphere：局部参数为 centerLocal（可选）+ radiusLocal；世界半径=radiusLocal*uniformScale
@@ -174,3 +180,8 @@ std::unique_ptr<ObbCollider> MakeObbCollider(const DirectX::XMFLOAT3 &halfExtent
 std::unique_ptr<CapsuleCollider> MakeCapsuleCollider(const DirectX::XMFLOAT3 &p0Local,
                                                      const DirectX::XMFLOAT3 &p1Local,
                                                      float radiusLocal);
+
+// 重载：使用半径 + 中间圆柱体高度 + 轴向初始化胶囊体
+std::unique_ptr<CapsuleCollider> MakeCapsuleCollider(float radiusLocal,
+                                                     float cylinderHeight,
+                                                     const DirectX::XMFLOAT3 &axis = DirectX::XMFLOAT3{0, 1, 0});

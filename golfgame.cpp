@@ -29,89 +29,23 @@ static std::wstring ExeDirMain() {
 
 int main()
 {
-	sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800,600),32), "DX with SFML Window");
-	window.setMouseCursorVisible(false);
-	window.setMouseCursorGrabbed(true);
+	sf::RenderWindow window(sf::VideoMode(sf::Vector2u(1280,720),32), "DX with SFML Window - RTS Mode");
+	window.setMouseCursorVisible(true);  // RTS 模式：显示鼠标光标
+	window.setMouseCursorGrabbed(false); // RTS 模式：不捕获鼠标
 	HWND hwnd = window.getNativeHandle();
 
 	Renderer renderer;
-	renderer.initialize(hwnd, 800, 600, true);
+	renderer.initialize(hwnd, 1280, 720, true);
 
 	// 场景管理：使用智能指针管理当前场景
-	std::unique_ptr<Scene> currentScene = std::make_unique<BattleScene>();
+	std::unique_ptr<BattleScene> currentScene = std::make_unique<BattleScene>();
 	currentScene->init(&renderer);
-
-	// Create a Field and load models for platform and decoration
-	Field field;
-	Model cubeModel;
-	Model treeModel;
-
-	std::wstring cubePath = ExeDirMain() + L"\\asset\\cube.fbx";
-	std::wstring treePath = ExeDirMain() + L"\\asset\\tree.fbx";
-
-	bool cubeLoaded = ModelLoader::LoadFBX(renderer.device(), cubePath, cubeModel);
-	bool treeLoaded = ModelLoader::LoadFBX(renderer.device(), treePath, treeModel);
-	printf("Cube FBX loaded: %d, meshes=%zu, drawItems=%zu\n", cubeLoaded, cubeModel.meshes.size(),
-	       cubeModel.drawItems.size());
-	printf("Tree FBX loaded: %d, meshes=%zu, drawItems=%zu\n", treeLoaded, treeModel.meshes.size(),
-	       treeModel.drawItems.size());
-
-	// Build a 10x10 platform of cubes (grid in XZ plane)
-	if (cubeLoaded) {
-		const int W = 10, H = 10;
-		for (int z = 0; z < H; ++z) {
-			for (int x = 0; x < W; ++x) {
-				auto e = std::make_unique<StaticEntity>();
-				e->modelRef = &cubeModel; // lifetime note: cubeModel lives until main ends
-				e->transform.position = {(float) x * 0.1f, 0.0f, (float) z * 0.1f};
-				e->transform.scale = {10.0f, 10.0f, 10.0f};
-				e->transform.setRotationEuler(XM_PIDIV2, 0, 0);
-				field.add(std::move(e));
-			}
-		}
-	}
-
-	// Randomly place several trees on top of the platform
-	if (treeLoaded) {
-		std::mt19937 rng(1337);
-		std::uniform_int_distribution<int> distXZ(-0, 0.1f);
-		std::uniform_real_distribution<float> jitter(-0.0f, 0.1f);
-		const int treeCount = 10; // a few decorative trees
-		for (int i = 0; i < treeCount; ++i) {
-			float x = (float) distXZ(rng) + jitter(rng);
-			float z = (float) distXZ(rng) + jitter(rng);
-			auto t = std::make_unique<StaticEntity>();
-			t->modelRef = &treeModel;
-			t->transform.scale = {10.0f, 10.0f, 10.0f};
-			t->transform.setRotationEuler(XM_PIDIV2, 0, 0);
-			t->transform.position = {x, 0, z}; // slightly above the cubes
-			field.add(std::move(t));
-		}
-	}
-
-	// Create 9 Cube entities arranged in a 3x3 grid around the origin
-	// std::array<Cube, 9> cubes;
-	// const float spacing = 3.0f; // equal spacing
-	// {
-	// 	// Initialize cubes and set their positions in a 3x3 grid (i: x, j: y)
-	// 	int idx = 0;
-	// 	for (int j = -1; j <= 1; ++j) {
-	// 		for (int i = -1; i <= 1; ++i) {
-	// 			Cube& c = cubes[idx++];
-	// 			c.initialize(renderer.device());
-	// 			c.setPosition(i * spacing, 0, j*spacing);
-	// 		}
-	// 	}
-	// }
 
 	// 获取程序启动时间和帧时间
 	auto startTime = std::chrono::high_resolution_clock::now();
 	auto lastFrameTime = startTime;
 
-	// Mouse state
-	sf::Vector2i lastMousePos = sf::Mouse::getPosition(window);
-	sf::Vector2i centerPos(400, 300);
-	bool firstMouse = true;
+	// RTS 模式不需要鼠标状态追踪
 
 	while (window.isOpen()) {
 		// 计算deltaTime
@@ -138,40 +72,29 @@ int main()
 				}
 			}
 			if (const auto* scroll = event->getIf<sf::Event::MouseWheelScrolled>()) {
-				renderer.getCamera().processMouseScroll(scroll->delta);
+				if (currentScene) {
+					currentScene->camera().processMouseScroll(scroll->delta);
+				}
 			}
 		}
 
-		// 键盘输入 - WASD移动，Space/Shift上下移动
-		bool forward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W);
-		bool backward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
-		bool left = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A);
-		bool right = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D);
-		bool up = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
-		bool down = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift);
+		// 输入处理
+		if (currentScene) {
+			// 更新右键状态（用于 InputManager 的长按/短按检测）
+			currentScene->inputManager().setRightButtonDown(sf::Mouse::isButtonPressed(sf::Mouse::Button::Right));
 
-		renderer.getCamera().processKeyboard(forward, backward, left, right, up, down, deltaTime);
+			// 调用场景的输入处理（鼠标点击交互）
+			currentScene->handleInput(deltaTime, &window);
 
-		// 鼠标输入 - 控制视角
-		if (window.hasFocus()) {
-			sf::Vector2i currentMousePos = sf::Mouse::getPosition(window);
+			// RTS 键盘输入 - WASD 平移，QE 旋转
+			bool forward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W);
+			bool backward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
+			bool left = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A);
+			bool right = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D);
+			bool rotateLeft = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q);
+			bool rotateRight = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E);
 
-			if (firstMouse) {
-				lastMousePos = currentMousePos;
-				firstMouse = false;
-			}
-
-			sf::Vector2i mouseDelta = currentMousePos - centerPos;
-
-			if (mouseDelta.x != 0 || mouseDelta.y != 0) {
-				renderer.getCamera().processMouseMove(
-					static_cast<float>(mouseDelta.x),
-					static_cast<float>(-mouseDelta.y)  // Invert Y
-				);
-
-				// Reset mouse to center
-				sf::Mouse::setPosition(centerPos, window);
-			}
+			currentScene->camera().processKeyboard(forward, backward, left, right, rotateLeft, rotateRight, deltaTime);
 		}
 
 		// 驱动场景调度（物理→更新→提交）

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "StaticEntity.hpp"
 #include "BulletEntity.hpp"
 #include <memory>
@@ -18,8 +18,6 @@ public:
     float bulletSpeed = 10.0f;
     float bulletRadius = 0.25f;
 
-    std::unique_ptr<CapsuleCollider> bodyCollider;
-    std::unique_ptr<OBBCollider> frontTrigger;
     DirectX::XMFLOAT3 facingDirection{0, 0, 1};
 
     void update(WorldContext &ctx, float dt) override;

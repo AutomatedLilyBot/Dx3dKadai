@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RenderDeviceD3D11.hpp"
 #include "ShaderProgram.hpp"
 #include "Mesh.hpp"
@@ -49,9 +49,15 @@ public:
                            const DirectX::XMFLOAT4 &color = DirectX::XMFLOAT4{1, 1, 0, 1},
                            float scale = 1.0f);
 
-    // Camera access
+    // Camera management: 现在需要外部提供 Camera
+    // 旧接口保留用于兼容性，但应该使用 setCamera()
+    [[deprecated("Use setCamera() and pass Camera from Scene")]]
     Camera &getCamera() { return m_camera; }
+    [[deprecated("Use setCamera() and pass Camera from Scene")]]
     const Camera &getCamera() const { return m_camera; }
+
+    // 设置当前帧使用的 Camera（由 Scene 提供）
+    void setCamera(const Camera* camera) { m_externalCamera = camera; }
 
     // Temporary accessor for cube mesh (for demo purposes)
     const Mesh &getCubeMesh() const { return m_cube; }
@@ -64,6 +70,11 @@ public:
     ID3D11Device *device() const { return m_dev.device(); }
 
 private:
+    // 获取当前活跃的 Camera（优先外部，回退到内部）
+    const Camera& getActiveCamera() const {
+        return m_externalCamera ? *m_externalCamera : m_camera;
+    }
+
     struct TransformCB {
         DirectX::XMFLOAT4X4 World;
         DirectX::XMFLOAT4X4 WVP;
@@ -82,7 +93,8 @@ private:
     ShaderProgram m_shader;
     Mesh m_cube;
     Texture m_defaultTexture;
-    Camera m_camera;
+    Camera m_camera; // 保留作为后备，用于兼容旧代码
+    const Camera* m_externalCamera = nullptr; // 外部 Camera（优先使用）
 
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbTransform;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbLight;

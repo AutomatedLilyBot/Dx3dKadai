@@ -1,4 +1,4 @@
-#include "Renderer.hpp"
+﻿#include "Renderer.hpp"
 #undef min
 #undef max
 #include <cmath>
@@ -286,9 +286,10 @@ void Renderer::drawColliderWire(const ColliderBase &col) {
 
     // Set transform for lines (world = identity; vertices already in world space)
     XMMATRIX I = XMMatrixIdentity();
-    XMMATRIX V = m_camera.getViewMatrix();
+    const Camera& cam = getActiveCamera();
+    XMMATRIX V = cam.getViewMatrix();
     float aspect = (float) m_dev.width() / (float) m_dev.height();
-    XMMATRIX P = XMMatrixPerspectiveFovLH(XMConvertToRadians(60.0f), aspect, 0.1f, 100.f);
+    XMMATRIX P = cam.getProjectionMatrix(aspect);
     TransformCB cb{};
     XMStoreFloat4x4(&cb.World, I);
     XMStoreFloat4x4(&cb.WVP, I * V * P);
@@ -407,9 +408,10 @@ void Renderer::drawContactGizmo(const OverlapResult &contact, const XMFLOAT4 &co
 
     // Set transform for lines (world = identity)
     XMMATRIX I = XMMatrixIdentity();
-    XMMATRIX V = m_camera.getViewMatrix();
+    const Camera& cam = getActiveCamera();
+    XMMATRIX V = cam.getViewMatrix();
     float aspect = (float) m_dev.width() / (float) m_dev.height();
-    XMMATRIX P = XMMatrixPerspectiveFovLH(XMConvertToRadians(60.0f), aspect, 0.1f, 100.f);
+    XMMATRIX P = cam.getProjectionMatrix(aspect);
     TransformCB cb{};
     XMStoreFloat4x4(&cb.World, I);
     XMStoreFloat4x4(&cb.WVP, I * V * P);
@@ -463,9 +465,10 @@ void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, co
     using namespace DirectX;
 
     // Get view matrix from camera and calculate projection
-    XMMATRIX V = m_camera.getViewMatrix();
+    const Camera& cam = getActiveCamera();
+    XMMATRIX V = cam.getViewMatrix();
     float aspect = (float)m_dev.width() / (float)m_dev.height();
-    XMMATRIX P = XMMatrixPerspectiveFovLH(XMConvertToRadians(60.0f), aspect, 0.1f, 100.f);
+    XMMATRIX P = cam.getProjectionMatrix(aspect);
 
     // Update transform constant buffer
     XMMATRIX WVP = transform * V * P;

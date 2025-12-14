@@ -1,5 +1,6 @@
-#include "NodeEntity.hpp"
+﻿#include "NodeEntity.hpp"
 #include <DirectXMath.h>
+#include "game/runtime/WorldContext.hpp"
 
 using namespace DirectX;
 
@@ -27,7 +28,9 @@ void NodeEntity::setFacingDirection(const DirectX::XMFLOAT3 &worldTarget) {
 }
 
 bool NodeEntity::isFrontClear(WorldContext &ctx) const {
-    if (!frontTrigger) return true;
+    ColliderBase* trigger=colliders_.at(1).get();
+    if (!trigger&&!trigger->isTrigger()) return false;
+
     return !ctx.physics->isAnyTriggerOverlapping(id());
 }
 
@@ -36,9 +39,14 @@ void NodeEntity::fireBullet(WorldContext &ctx) {
     ctx.commands->spawn<BulletEntity>([&](BulletEntity *b) {
         b->team = team;
         b->transform.position = transform.position;
-        b->initialize(bulletRadius, L"asset/ball.fbx", nullptr);
+        // 使用 ResourceManager 初始化（从 WorldContext 获取）
+        b->initialize(bulletRadius, L"asset/ball.fbx", ctx.resources);
         b->rb.invMass = 1.0f;
-        b->rb.velocity = {facingDirection.x * bulletSpeed, facingDirection.y * bulletSpeed, facingDirection.z * bulletSpeed};
+        b->rb.velocity = {
+            facingDirection.x * bulletSpeed,
+            facingDirection.y * bulletSpeed,
+            facingDirection.z * bulletSpeed
+        };
     });
 }
 

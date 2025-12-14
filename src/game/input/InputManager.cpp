@@ -1,4 +1,4 @@
-#include "InputManager.hpp"
+﻿#include "InputManager.hpp"
 #include <DirectXMath.h>
 
 using namespace DirectX;
@@ -18,7 +18,8 @@ Ray InputManager::screenPointToRay(int screenX, int screenY, const Camera &camer
 
     // Get view and projection matrices from camera
     XMMATRIX view = camera.getViewMatrix();
-    XMMATRIX proj = camera.getProjectionMatrix();
+    float aspectRatio = viewportWidth / viewportHeight;
+    XMMATRIX proj = camera.getProjectionMatrix(aspectRatio);
     XMMATRIX invViewProj = XMMatrixInverse(nullptr, view * proj);
 
     // Unproject to world space
@@ -34,8 +35,58 @@ Ray InputManager::screenPointToRay(int screenX, int screenY, const Camera &camer
     return r;
 }
 
-EntityId InputManager::raycastEntities(const Ray &/*ray*/, const Scene &/*scene*/, float /*maxDist*/) {
-    return 0;
+EntityId InputManager::raycastEntities(const Ray &ray, const Scene &scene, float maxDist) {
+    EntityId closestEntity = 0;
+    float closestDistance = maxDist;
+
+    // 获取场景中的所有实体
+    const auto* entityMap = scene.getEntityMap();
+    if (!entityMap) {
+        printf("[Raycast] EntityMap is null!\n");
+        return 0;
+    }
+
+    printf("[Raycast] Testing %zu entities...\n", entityMap->size());
+    int testedColliders = 0;
+    bool debugFirstFew = true;
+
+    // 遍历所有实体，检测射线相交
+    for (const auto& [id, entity] : *entityMap) {
+        if (!entity) continue;
+
+        // 遍历实体的所有碰撞体
+        auto colliders = entity->colliders();
+        for (auto* collider : colliders) {
+            if (!collider) continue;
+            // 跳过触发器（只检测实体本体）
+            if (collider->isTrigger()) continue;
+
+            testedColliders++;
+
+            // Debug前几个碰撞体的信息
+            if (debugFirstFew && testedColliders <= 3) {
+                DirectX::XMFLOAT3 colPos = collider->ownerWorldPosition();
+                printf("  Testing collider %d: type=%d, pos=(%.2f, %.2f, %.2f)\n",
+                       testedColliders, (int)collider->kind(), colPos.x, colPos.y, colPos.z);
+            }
+
+            float distance = 0.0f;
+            if (collider->intersectsRay(ray.origin, ray.dir, distance)) {
+                printf("  [HIT] Entity %llu at distance %.2f\n", id, distance);
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestEntity = id;
+                }
+            }
+        }
+
+        if (testedColliders >= 3) debugFirstFew = false;
+    }
+
+    printf("[Raycast] Tested %d colliders, result: entity %llu at %.2f\n",
+           testedColliders, closestEntity, closestDistance);
+
+    return closestEntity;
 }
 
 bool InputManager::raycastPlane(const Ray &ray, float planeY, DirectX::XMFLOAT3 &hitPoint) {

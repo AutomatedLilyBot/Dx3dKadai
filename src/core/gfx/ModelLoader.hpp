@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include <wrl/client.h>
 #include <d3d11.h>

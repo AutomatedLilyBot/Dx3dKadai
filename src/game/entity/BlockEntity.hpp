@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "StaticEntity.hpp"
 
 class BlockEntity : public StaticEntity {

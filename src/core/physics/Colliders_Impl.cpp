@@ -1,4 +1,4 @@
-#include "Collider.hpp"
+﻿#include "Collider.hpp"
 #include "Transform.hpp"
 #include <cmath>
 #include <algorithm>
@@ -109,6 +109,36 @@ namespace {
         void setOwnerWorldRotationEuler(const XMFLOAT3 &ownerRotEulerW) override { m_ownerRot = ownerRotEulerW; }
         XMFLOAT3 ownerWorldPosition() const override { return m_ownerPos; }
         XMFLOAT3 ownerWorldRotationEuler() const override { return m_ownerRot; }
+
+        // 射线相交检测（球体）
+        bool intersectsRay(const XMFLOAT3 &rayOrigin, const XMFLOAT3 &rayDir, float &outDistance) const override {
+            XMFLOAT3 center = centerWorld();
+            float radius = radiusWorld();
+
+            XMVECTOR oc = XMVectorSet(
+                rayOrigin.x - center.x,
+                rayOrigin.y - center.y,
+                rayOrigin.z - center.z,
+                0
+            );
+            XMVECTOR dir = XMLoadFloat3(&rayDir);
+
+            float a = XMVectorGetX(XMVector3Dot(dir, dir));
+            float b = 2.0f * XMVectorGetX(XMVector3Dot(oc, dir));
+            float c = XMVectorGetX(XMVector3Dot(oc, oc)) - radius * radius;
+
+            float discriminant = b * b - 4 * a * c;
+            if (discriminant < 0) return false;
+
+            float t = (-b - sqrtf(discriminant)) / (2.0f * a);
+            if (t < 0) {
+                t = (-b + sqrtf(discriminant)) / (2.0f * a);
+                if (t < 0) return false;
+            }
+
+            outDistance = t;
+            return true;
+        }
 
     private:
         // Owner 世界位姿
@@ -240,6 +270,49 @@ namespace {
             };
         }
 
+        // 射线相交检测（OBB）- 使用 Slab 方法
+        bool intersectsRay(const XMFLOAT3 &rayOrigin, const XMFLOAT3 &rayDir, float &outDistance) const override {
+            XMFLOAT3 center = centerWorld();
+            XMFLOAT3 axes[3];
+            axesWorld(axes);
+            XMFLOAT3 halfExtents = halfExtentsWorld();
+
+            // 计算从射线起点到 OBB 中心的向量
+            XMVECTOR rayOriginVec = XMLoadFloat3(&rayOrigin);
+            XMVECTOR centerVec = XMLoadFloat3(&center);
+            XMVECTOR delta = XMVectorSubtract(centerVec, rayOriginVec); // 注意：从起点指向中心
+
+            float tMin = 0.0f;  // 射线起点在 t=0
+            float tMax = FLT_MAX;
+
+            for (int i = 0; i < 3; ++i) {
+                XMVECTOR axis = XMLoadFloat3(&axes[i]);
+                float e = XMVectorGetX(XMVector3Dot(axis, delta));      // 中心在轴上的投影
+                float f = XMVectorGetX(XMVector3Dot(axis, XMLoadFloat3(&rayDir))); // 方向在轴上的投影
+
+                float extent = (i == 0) ? halfExtents.x : (i == 1) ? halfExtents.y : halfExtents.z;
+
+                if (fabsf(f) > 1e-6f) {
+                    // 计算射线与 slab 的交点参数
+                    float t1 = (e - extent) / f;
+                    float t2 = (e + extent) / f;
+                    if (t1 > t2) std::swap(t1, t2);
+
+                    tMin = std::max(tMin, t1);
+                    tMax = std::min(tMax, t2);
+
+                    if (tMin > tMax) return false; // 没有交集
+                } else {
+                    // 射线平行于 slab
+                    if (e - extent > 0 || e + extent < 0) return false;
+                }
+            }
+
+            if (tMax < 0 || tMin > tMax) return false;
+            outDistance = tMin;
+            return true;
+        }
+
     private:
         XMFLOAT3 m_ownerPos{0, 0, 0};
         XMFLOAT3 m_ownerRot{0, 0, 0};
@@ -343,6 +416,52 @@ namespace {
         XMFLOAT3 ownerWorldPosition() const override { return m_ownerPos; }
         XMFLOAT3 ownerWorldRotationEuler() const override { return m_ownerRot; }
 
+        // 射线相交检测（Capsule）- 简化版：先检测与线段端点球体相交
+        bool intersectsRay(const XMFLOAT3 &rayOrigin, const XMFLOAT3 &rayDir, float &outDistance) const override {
+            auto seg = segmentWorld();
+            XMFLOAT3 p0 = seg.first, p1 = seg.second;
+            float radius = radiusWorld();
+
+            XMVECTOR ro = XMLoadFloat3(&rayOrigin);
+            XMVECTOR rd = XMLoadFloat3(&rayDir);
+            XMVECTOR a = XMLoadFloat3(&p0);
+            XMVECTOR b = XMLoadFloat3(&p1);
+            XMVECTOR ab = XMVectorSubtract(b, a);
+            XMVECTOR ao = XMVectorSubtract(ro, a);
+
+            float ab_ab = XMVectorGetX(XMVector3Dot(ab, ab));
+            float ab_ao = XMVectorGetX(XMVector3Dot(ab, ao));
+            float ab_rd = XMVectorGetX(XMVector3Dot(ab, rd));
+
+            float m = ab_ab;
+            float n = 2.0f * (ab_ao - ab_rd);
+            float p = XMVectorGetX(XMVector3Dot(ao, ao)) - 2.0f * ab_ao - radius * radius;
+
+            float discriminant = n * n - 4 * m * p;
+            if (discriminant < 0 && ab_ab > 1e-6f) return false;
+
+            // 简化：检测两个端点球体
+            auto testSphere = [&](const XMFLOAT3& center) -> float {
+                XMVECTOR oc = XMVectorSubtract(ro, XMLoadFloat3(&center));
+                float a = XMVectorGetX(XMVector3Dot(rd, rd));
+                float b = 2.0f * XMVectorGetX(XMVector3Dot(oc, rd));
+                float c = XMVectorGetX(XMVector3Dot(oc, oc)) - radius * radius;
+                float disc = b * b - 4 * a * c;
+                if (disc < 0) return FLT_MAX;
+                float t = (-b - sqrtf(disc)) / (2.0f * a);
+                if (t < 0) t = (-b + sqrtf(disc)) / (2.0f * a);
+                return (t >= 0) ? t : FLT_MAX;
+            };
+
+            float t0 = testSphere(p0);
+            float t1 = testSphere(p1);
+            float tMin = std::min(t0, t1);
+
+            if (tMin == FLT_MAX) return false;
+            outDistance = tMin;
+            return true;
+        }
+
         // Capsule specifics
         std::pair<XMFLOAT3, XMFLOAT3> segmentWorld() const override {
             XMMATRIX S = XMMatrixScaling(m_scl.x, m_scl.y, m_scl.z);
@@ -420,5 +539,32 @@ std::unique_ptr<ObbCollider> MakeObbCollider(const XMFLOAT3 &halfExtentsLocal) {
 
 std::unique_ptr<CapsuleCollider> MakeCapsuleCollider(const XMFLOAT3 &p0Local, const XMFLOAT3 &p1Local,
                                                      float radiusLocal) {
+    return std::make_unique<CapsuleColliderImpl>(p0Local, p1Local, radiusLocal);
+}
+
+std::unique_ptr<CapsuleCollider> MakeCapsuleCollider(float radiusLocal, float cylinderHeight,
+                                                     const XMFLOAT3 &axis) {
+    // 归一化轴向
+    XMVECTOR axisVec = XMLoadFloat3(&axis);
+    axisVec = XMVector3Normalize(axisVec);
+    XMFLOAT3 normalizedAxis;
+    XMStoreFloat3(&normalizedAxis, axisVec);
+
+    // 计算半高度（圆柱体高度的一半）
+    float halfHeight = cylinderHeight * 0.5f;
+
+    // 计算两个端点：从原点沿轴向±halfHeight
+    XMFLOAT3 p0Local{
+        -normalizedAxis.x * halfHeight,
+        -normalizedAxis.y * halfHeight,
+        -normalizedAxis.z * halfHeight
+    };
+
+    XMFLOAT3 p1Local{
+        normalizedAxis.x * halfHeight,
+        normalizedAxis.y * halfHeight,
+        normalizedAxis.z * halfHeight
+    };
+
     return std::make_unique<CapsuleColliderImpl>(p0Local, p1Local, radiusLocal);
 }

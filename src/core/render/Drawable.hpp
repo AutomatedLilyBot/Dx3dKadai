@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <DirectXMath.h>
 #include "../../../src/core/gfx/Model.hpp"
 #include "Material.hpp"

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "DynamicEntity.hpp"
 #include "../../core/gfx/ModelLoader.hpp"
 #include <memory>
@@ -10,7 +10,7 @@ public:
         modelOwned = std::make_unique<Model>();
         ModelLoader::LoadFBX(dev, modelPath, *modelOwned);
         modelRef = modelOwned.get();
-        collider_ = MakeSphereCollider(radius);
+        setCollider(MakeSphereCollider(radius));
         rb.invMass = 1.0f; // 动态体
     }
 

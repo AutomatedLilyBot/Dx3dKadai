@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <DirectXMath.h>
 #include <optional>
 #include "../runtime/Scene.hpp"
@@ -16,6 +16,7 @@ public:
     bool raycastPlane(const Ray &ray, float planeY, DirectX::XMFLOAT3 &hitPoint);
 
     void updateMouseButtons(float dt);
+    void setRightButtonDown(bool down) { rightButtonDown_ = down; }
     bool isRightClickShort() const { return rightClickShort_; }
     bool isRightClickLong() const { return rightClickLong_; }
 

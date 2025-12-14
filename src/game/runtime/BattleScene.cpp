@@ -1,4 +1,6 @@
-#include "BattleScene.hpp"
+﻿#include "BattleScene.hpp"
+
+#include <corecrt_startup.h>
 #include <windows.h>
 #include <string>
 
@@ -15,6 +17,16 @@ static std::wstring ExeDirBattleScene() {
 void BattleScene::init(Renderer *renderer) {
     renderer_ = renderer;
     resourceManager_.setDevice(renderer ? renderer->device() : nullptr);
+
+    // 初始化相机（RTS 风格：固定高度和俯视角）
+    camera_.setPosition(XMFLOAT3{0, 10.0f, -10.0f});
+    camera_.setLookAt(XMFLOAT3{0, 0, 0});
+    camera_.setMode(CameraMode::RTS);
+
+    // 将相机设置到 Renderer
+    if (renderer_) {
+        renderer_->setCamera(&camera_);
+    }
 
     WorldParams params;
     params.gravity = XMFLOAT3{0, -9.8f, 0};
@@ -33,7 +45,7 @@ void BattleScene::createField() {
         for (int z = 0; z < size; ++z) {
             auto block = std::make_unique<BlockEntity>();
             block->setId(allocId());
-            block->transform.position = XMFLOAT3{(float)x - size / 2.0f, -1.0f, (float)z - size / 2.0f};
+            block->transform.position = XMFLOAT3{(float)x - size / 2.0f, -0.5f, (float)z - size / 2.0f};
             block->transform.scale = {1.0f, 1.0f, 1.0f};
             block->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
             block->collider()->updateDerived();
@@ -45,18 +57,64 @@ void BattleScene::createField() {
         }
     }
 
-    // walls
+    // walls - 四周包围
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            auto wall = std::make_unique<BlockEntity>();
-            wall->setId(allocId());
-            wall->transform.position = XMFLOAT3{(float)i - size / 2.0f, (float)layer, -size / 2.0f};
-            wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
-            wall->responseType = BlockEntity::ResponseType::DestroyBullet;
-            if (cube) wall->modelRef = cube;
-            registerEntity(*wall);
-            id2ptr_[wall->id()] = wall.get();
-            entities_.push_back(std::move(wall));
+            // 北墙 (Z-)
+            {
+                auto wall = std::make_unique<BlockEntity>();
+                wall->setId(allocId());
+                wall->transform.position = XMFLOAT3{(float)i - size / 2.0f, (float)layer + 0.5f, -size / 2.0f};
+                wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
+                wall->collider()->updateDerived();
+                wall->responseType = BlockEntity::ResponseType::DestroyBullet;
+                if (cube) wall->modelRef = cube;
+                registerEntity(*wall);
+                id2ptr_[wall->id()] = wall.get();
+                entities_.push_back(std::move(wall));
+            }
+
+            // 南墙 (Z+)
+            {
+                auto wall = std::make_unique<BlockEntity>();
+                wall->setId(allocId());
+                wall->transform.position = XMFLOAT3{(float)i - size / 2.0f, (float)layer + 0.5f, size / 2.0f - 1.0f};
+                wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
+                wall->collider()->updateDerived();
+                wall->responseType = BlockEntity::ResponseType::DestroyBullet;
+                if (cube) wall->modelRef = cube;
+                registerEntity(*wall);
+                id2ptr_[wall->id()] = wall.get();
+                entities_.push_back(std::move(wall));
+            }
+
+            // 西墙 (X-)
+            {
+                auto wall = std::make_unique<BlockEntity>();
+                wall->setId(allocId());
+                wall->transform.position = XMFLOAT3{-size / 2.0f, (float)layer + 0.5f, (float)i - size / 2.0f};
+                wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
+                wall->collider()->updateDerived();
+                wall->responseType = BlockEntity::ResponseType::DestroyBullet;
+                if (cube) wall->modelRef = cube;
+                registerEntity(*wall);
+                id2ptr_[wall->id()] = wall.get();
+                entities_.push_back(std::move(wall));
+            }
+
+            // 东墙 (X+)
+            {
+                auto wall = std::make_unique<BlockEntity>();
+                wall->setId(allocId());
+                wall->transform.position = XMFLOAT3{size / 2.0f - 1.0f, (float)layer + 0.5f, (float)i - size / 2.0f};
+                wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
+                wall->collider()->updateDerived();
+                wall->responseType = BlockEntity::ResponseType::DestroyBullet;
+                if (cube) wall->modelRef = cube;
+                registerEntity(*wall);
+                id2ptr_[wall->id()] = wall.get();
+                entities_.push_back(std::move(wall));
+            }
         }
     }
 }
@@ -70,15 +128,156 @@ void BattleScene::createNodes() {
         node->setId(allocId());
         node->transform.position = pos;
         node->team = team;
-        node->setCollider(MakeCapsuleCollider(XMFLOAT3{0.5f, 1.0f, 0.5f}));
-        node->collider()->updateDerived();
+
+        // 本体碰撞体（主碰撞体，用于物理碰撞）
+        auto cap = MakeCapsuleCollider(0.5f, 1.0f);
+        cap->setDebugEnabled(true);
+        cap->setDebugColor(XMFLOAT4(0, 1, 0, 1));
+        node->setCollider(std::move(cap));  // ✅ 使用 setCollider 设置主碰撞体
+
+        // 发射检测触发器（前方区域，只检测不产生物理响应）
+        auto obb = MakeObbCollider(XMFLOAT3{0.3f, 0.3f, 0.3f});
+        obb->setDebugEnabled(true);
+        obb->setDebugColor(XMFLOAT4(0, 1, 1, 1));
+        obb->setPosition(XMFLOAT3(0, 0, 0.8f));  // 相对节点本体前方2.1单位
+        obb->setIsTrigger(true);
+        node->addCollider(std::move(obb));  // ✅ 使用 addCollider 添加额外碰撞体
+
+        // 初始化同步
+        for (auto &c : node->colliders()) {
+            if (c) c->updateDerived();
+        }
+
         if (cylinder) node->modelRef = cylinder;
         registerEntity(*node);
         id2ptr_[node->id()] = node.get();
         entities_.push_back(std::move(node));
     };
 
-    createNodeAt(XMFLOAT3{0, 0, 0}, NodeTeam::Friendly);
-    createNodeAt(XMFLOAT3{2, 0, 2}, NodeTeam::Enemy);
-    createNodeAt(XMFLOAT3{-2, 0, -2}, NodeTeam::Neutral);
+    createNodeAt(XMFLOAT3{0, 1, 0}, NodeTeam::Friendly);
+    createNodeAt(XMFLOAT3{2, 1, 2}, NodeTeam::Enemy);
+    createNodeAt(XMFLOAT3{-2, 1, -2}, NodeTeam::Neutral);
+}
+
+void BattleScene::tick(float dt) {
+    // 更新相机（处理平滑插值和 Orbit 模式朝向）
+    camera_.update(dt);
+
+    // 调用基类 tick（物理→更新→提交）
+    Scene::tick(dt);
+}
+
+void BattleScene::handleInput(float dt, const void* window) {
+    // 更新 InputManager 状态（右键长按/短按检测）
+    inputManager_.updateMouseButtons(dt);
+
+    // === 左键点击：选择/取消选择 Node ===
+    static bool leftWasPressed = false;
+    bool leftPressed = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
+
+    // 检测按键从未按下到按下的边缘（只在按下瞬间触发一次）
+    if (leftPressed && !leftWasPressed) {
+        // 获取鼠标窗口坐标
+        const sf::Window* sfWindow = static_cast<const sf::Window*>(window);
+        sf::Vector2i mousePos = sf::Mouse::getPosition(*sfWindow);
+
+        printf("Mouse clicked at screen position: (%d, %d)\n", mousePos.x, mousePos.y);
+
+        Ray ray = inputManager_.screenPointToRay(mousePos.x, mousePos.y, camera_);
+        printf("Ray origin: (%.2f, %.2f, %.2f), dir: (%.2f, %.2f, %.2f)\n",
+               ray.origin.x, ray.origin.y, ray.origin.z,
+               ray.dir.x, ray.dir.y, ray.dir.z);
+
+        // 射线检测场景中的实体
+        EntityId hitEntity = inputManager_.raycastEntities(ray, *this, 100.0f);
+
+        printf("Raycast result: hitEntity = %llu\n", hitEntity);
+
+        if (hitEntity != 0) {
+            // 检查是否是 Node
+            NodeEntity* node = getNodeEntity(hitEntity);
+            if (node && node->team == NodeTeam::Friendly) {
+                // 选中友方 Node（RTS 模式下保持相机不变）
+                selectedNodeId_ = hitEntity;
+                inputManager_.selectNode(hitEntity);
+                printf("Selected friendly Node %llu\n", hitEntity);
+            } else {
+                // 点击了其他物体，取消选择
+                selectedNodeId_ = 0;
+                inputManager_.deselectNode();
+                printf("Clicked non-friendly entity, deselecting\n");
+            }
+        } else {
+            // 没有击中任何物体，取消选择
+            selectedNodeId_ = 0;
+            inputManager_.deselectNode();
+            printf("Clicked empty space, deselecting\n");
+        }
+    }
+
+    leftWasPressed = leftPressed;
+
+    // === 右键短按：指定发射方向（仅在选中 Node 时有效）===
+    if (inputManager_.isRightClickShort() && selectedNodeId_ != 0) {
+        NodeEntity* selectedNode = getNodeEntity(selectedNodeId_);
+        if (selectedNode) {
+            // 获取鼠标窗口坐标
+            const sf::Window* sfWindow = static_cast<const sf::Window*>(window);
+            sf::Vector2i mousePos = sf::Mouse::getPosition(*sfWindow);
+            Ray ray = inputManager_.screenPointToRay(mousePos.x, mousePos.y, camera_);
+
+            printf("[Right-click] Mouse at (%d, %d), Ray origin: (%.2f, %.2f, %.2f), dir: (%.2f, %.2f, %.2f)\n",
+                   mousePos.x, mousePos.y,
+                   ray.origin.x, ray.origin.y, ray.origin.z,
+                   ray.dir.x, ray.dir.y, ray.dir.z);
+
+            // 与地面平面相交（Y=0）
+            DirectX::XMFLOAT3 hitPoint;
+            if (inputManager_.raycastPlane(ray, 0.0f, hitPoint)) {
+                printf("[Right-click] Hit ground at (%.2f, %.2f, %.2f)\n",
+                       hitPoint.x, hitPoint.y, hitPoint.z);
+
+                // 计算从 Node 到点击点的方向
+                DirectX::XMFLOAT3 nodePos = selectedNode->transform.position;
+                printf("[Right-click] Node at (%.2f, %.2f, %.2f)\n",
+                       nodePos.x, nodePos.y, nodePos.z);
+
+                DirectX::XMVECTOR dir = DirectX::XMVectorSubtract(
+                    DirectX::XMLoadFloat3(&hitPoint),
+                    DirectX::XMLoadFloat3(&nodePos)
+                );
+                dir = DirectX::XMVector3Normalize(dir);
+
+                DirectX::XMFLOAT3 facingDir;
+                DirectX::XMStoreFloat3(&facingDir, dir);
+
+                printf("[Right-click] Facing direction: (%.2f, %.2f, %.2f)\n",
+                       facingDir.x, facingDir.y, facingDir.z);
+
+                // 更新 Node 的朝向
+                selectedNode->facingDirection = facingDir;
+
+                // 更新 Node 的旋转（让 +Z 轴对准 facingDirection）
+                float yaw = atan2f(facingDir.x, facingDir.z);
+                printf("[Right-click] Yaw angle: %.2f radians (%.2f degrees)\n",
+                       yaw, yaw * 180.0f / 3.14159f);
+
+                selectedNode->transform.setRotationEuler(0, yaw, 0);
+                selectedNode->startFiring();
+            } else {
+                printf("[Right-click] Failed to hit ground plane\n");
+            }
+        }
+    }
+
+    // === 右键长按：绕 Node 旋转相机（Orbit 模式的鼠标控制在 main.cpp 中处理）===
+    // 这里不需要额外处理，processMouseMove 会在 Orbit 模式下自动生效
+}
+
+NodeEntity* BattleScene::getNodeEntity(EntityId id) {
+    auto it = id2ptr_.find(id);
+    if (it != id2ptr_.end() && it->second) {
+        return dynamic_cast<NodeEntity*>(it->second);
+    }
+    return nullptr;
 }
