@@ -2,6 +2,7 @@
 #include "BulletEntity.hpp"
 
 void BlockEntity::onCollision(WorldContext &ctx, EntityId other, TriggerPhase phase, const OverlapResult &c) {
+    if (!ctx.commands) return;
     if (phase != TriggerPhase::Enter) return;
     auto *otherEntity = ctx.entities->getEntity(other);
     if (!otherEntity) return;
