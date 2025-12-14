@@ -38,7 +38,7 @@ int main()
 	renderer.initialize(hwnd, 800, 600, true);
 
 	// 场景管理：使用智能指针管理当前场景
-        std::unique_ptr<Scene> currentScene = std::make_unique<BattleScene>();
+	std::unique_ptr<Scene> currentScene = std::make_unique<BattleScene>();
 	currentScene->init(&renderer);
 
 	// Create a Field and load models for platform and decoration
