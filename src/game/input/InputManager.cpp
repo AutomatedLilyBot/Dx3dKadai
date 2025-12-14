@@ -3,10 +3,34 @@
 
 using namespace DirectX;
 
-Ray InputManager::screenPointToRay(int /*screenX*/, int /*screenY*/, const Camera &camera) {
+Ray InputManager::screenPointToRay(int screenX, int screenY, const Camera &camera) {
+    // Assume viewport dimensions are available; replace with actual values as needed
+    const float viewportWidth = 1280.0f;  // TODO: Replace with actual viewport width
+    const float viewportHeight = 720.0f;  // TODO: Replace with actual viewport height
+
+    // Convert screen (pixel) coordinates to normalized device coordinates (NDC)
+    float ndcX = (2.0f * screenX) / viewportWidth - 1.0f;
+    float ndcY = 1.0f - (2.0f * screenY) / viewportHeight; // Y is inverted
+
+    // Prepare points in NDC at near and far planes
+    XMVECTOR nearPointNDC = XMVectorSet(ndcX, ndcY, 0.0f, 1.0f);
+    XMVECTOR farPointNDC  = XMVectorSet(ndcX, ndcY, 1.0f, 1.0f);
+
+    // Get view and projection matrices from camera
+    XMMATRIX view = camera.getViewMatrix();
+    XMMATRIX proj = camera.getProjectionMatrix();
+    XMMATRIX invViewProj = XMMatrixInverse(nullptr, view * proj);
+
+    // Unproject to world space
+    XMVECTOR nearPointWorld = XMVector3TransformCoord(nearPointNDC, invViewProj);
+    XMVECTOR farPointWorld  = XMVector3TransformCoord(farPointNDC, invViewProj);
+
+    // Ray origin is near point, direction is (far - near)
+    XMVECTOR dir = XMVector3Normalize(farPointWorld - nearPointWorld);
+
     Ray r{};
-    r.origin = camera.position();
-    r.dir = camera.forward();
+    XMStoreFloat3(&r.origin, nearPointWorld);
+    XMStoreFloat3(&r.dir, dir);
     return r;
 }
 
