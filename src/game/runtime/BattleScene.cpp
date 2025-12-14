@@ -58,29 +58,29 @@ void BattleScene::createField() {
         entities_.push_back(std::move(wall));
     };
 
-    // negative z edge
+    // negative z edge (full edge including corners)
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            createWallAt(XMFLOAT3{(float)i - size / 2.0f, (float)layer, 0.0f - size / 2.0f});
+            createWallAt(XMFLOAT3{(float)i - size / 2.0f, (float)layer, -size / 2.0f});
         }
     }
     
-    // positive z edge
+    // positive z edge (full edge including corners)
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
             createWallAt(XMFLOAT3{(float)i - size / 2.0f, (float)layer, (float)(size - 1) - size / 2.0f});
         }
     }
     
-    // negative x edge
-    for (int i = 0; i < size; ++i) {
+    // negative x edge (skip corners to avoid overlap)
+    for (int i = 1; i < size - 1; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            createWallAt(XMFLOAT3{0.0f - size / 2.0f, (float)layer, (float)i - size / 2.0f});
+            createWallAt(XMFLOAT3{-size / 2.0f, (float)layer, (float)i - size / 2.0f});
         }
     }
     
-    // positive x edge
-    for (int i = 0; i < size; ++i) {
+    // positive x edge (skip corners to avoid overlap)
+    for (int i = 1; i < size - 1; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
             createWallAt(XMFLOAT3{(float)(size - 1) - size / 2.0f, (float)layer, (float)i - size / 2.0f});
         }
