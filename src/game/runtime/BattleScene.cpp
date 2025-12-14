@@ -46,63 +46,43 @@ void BattleScene::createField() {
     }
 
     // walls - create complete perimeter
+    auto createWallAt = [&](const XMFLOAT3 &pos) {
+        auto wall = std::make_unique<BlockEntity>();
+        wall->setId(allocId());
+        wall->transform.position = pos;
+        wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
+        wall->responseType = BlockEntity::ResponseType::DestroyBullet;
+        if (cube) wall->modelRef = cube;
+        registerEntity(*wall);
+        id2ptr_[wall->id()] = wall.get();
+        entities_.push_back(std::move(wall));
+    };
+
     // negative z edge
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            auto wall = std::make_unique<BlockEntity>();
-            wall->setId(allocId());
-            wall->transform.position = XMFLOAT3{(float)i - size / 2.0f, (float)layer, -size / 2.0f};
-            wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
-            wall->responseType = BlockEntity::ResponseType::DestroyBullet;
-            if (cube) wall->modelRef = cube;
-            registerEntity(*wall);
-            id2ptr_[wall->id()] = wall.get();
-            entities_.push_back(std::move(wall));
+            createWallAt(XMFLOAT3{(float)i - size / 2.0f, (float)layer, -size / 2.0f});
         }
     }
     
     // positive z edge
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            auto wall = std::make_unique<BlockEntity>();
-            wall->setId(allocId());
-            wall->transform.position = XMFLOAT3{(float)i - size / 2.0f, (float)layer, size / 2.0f - 1.0f};
-            wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
-            wall->responseType = BlockEntity::ResponseType::DestroyBullet;
-            if (cube) wall->modelRef = cube;
-            registerEntity(*wall);
-            id2ptr_[wall->id()] = wall.get();
-            entities_.push_back(std::move(wall));
+            createWallAt(XMFLOAT3{(float)i - size / 2.0f, (float)layer, size / 2.0f - 1.0f});
         }
     }
     
     // negative x edge
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            auto wall = std::make_unique<BlockEntity>();
-            wall->setId(allocId());
-            wall->transform.position = XMFLOAT3{-size / 2.0f, (float)layer, (float)i - size / 2.0f};
-            wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
-            wall->responseType = BlockEntity::ResponseType::DestroyBullet;
-            if (cube) wall->modelRef = cube;
-            registerEntity(*wall);
-            id2ptr_[wall->id()] = wall.get();
-            entities_.push_back(std::move(wall));
+            createWallAt(XMFLOAT3{-size / 2.0f, (float)layer, (float)i - size / 2.0f});
         }
     }
     
     // positive x edge
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            auto wall = std::make_unique<BlockEntity>();
-            wall->setId(allocId());
-            wall->transform.position = XMFLOAT3{size / 2.0f - 1.0f, (float)layer, (float)i - size / 2.0f};
-            wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
-            wall->responseType = BlockEntity::ResponseType::DestroyBullet;
-            if (cube) wall->modelRef = cube;
-            registerEntity(*wall);
-            id2ptr_[wall->id()] = wall.get();
-            entities_.push_back(std::move(wall));
+            createWallAt(XMFLOAT3{size / 2.0f - 1.0f, (float)layer, (float)i - size / 2.0f});
         }
     }
 }
