@@ -33,6 +33,7 @@ void BulletEntity::onCollision(WorldContext &ctx, EntityId other, TriggerPhase p
     auto *otherEntity = ctx.entities->getEntity(other);
     if (!otherEntity) return;
     if (dynamic_cast<BlockEntity *>(otherEntity)) {
+        if (!ctx.commands) return;
         ctx.commands->destroyEntity(id());
     }
 }
