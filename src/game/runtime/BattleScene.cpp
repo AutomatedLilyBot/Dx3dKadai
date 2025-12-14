@@ -61,28 +61,28 @@ void BattleScene::createField() {
     // negative z edge
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            createWallAt(XMFLOAT3{(float)i - size / 2.0f, (float)layer, -size / 2.0f});
+            createWallAt(XMFLOAT3{(float)i - size / 2.0f, (float)layer, 0.0f - size / 2.0f});
         }
     }
     
     // positive z edge
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            createWallAt(XMFLOAT3{(float)i - size / 2.0f, (float)layer, size / 2.0f - 1.0f});
+            createWallAt(XMFLOAT3{(float)i - size / 2.0f, (float)layer, (float)(size - 1) - size / 2.0f});
         }
     }
     
     // negative x edge
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            createWallAt(XMFLOAT3{-size / 2.0f, (float)layer, (float)i - size / 2.0f});
+            createWallAt(XMFLOAT3{0.0f - size / 2.0f, (float)layer, (float)i - size / 2.0f});
         }
     }
     
     // positive x edge
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            createWallAt(XMFLOAT3{size / 2.0f - 1.0f, (float)layer, (float)i - size / 2.0f});
+            createWallAt(XMFLOAT3{(float)(size - 1) - size / 2.0f, (float)layer, (float)i - size / 2.0f});
         }
     }
 }
