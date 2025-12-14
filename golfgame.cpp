@@ -129,7 +129,7 @@ int main()
 				if (keyPress->code == sf::Keyboard::Key::Escape) {
 					window.close();
 				}
-                            // 场景切换：按数字键1重新加载BattleScene
+				// 场景切换：按数字键1重新加载BattleScene
 				if (keyPress->code == sf::Keyboard::Key::Num1) {
 					currentScene.reset();
                                     currentScene = std::make_unique<BattleScene>();
