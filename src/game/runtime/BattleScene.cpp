@@ -46,6 +46,9 @@ void BattleScene::createField() {
     }
 
     // walls - create complete perimeter
+    // Note: Field ranges from -size/2 to size/2-1, so:
+    //   negative edges are at -size/2
+    //   positive edges are at size/2-1
     auto createWallAt = [&](const XMFLOAT3 &pos) {
         auto wall = std::make_unique<BlockEntity>();
         wall->setId(allocId());
