@@ -14,7 +14,7 @@
 #include "src/game/world/Field.hpp"
 #include "src/game/entity/StaticEntity.hpp"
 #include "src/core/physics/Transform.hpp"
-#include "src/game/runtime/PlayScene.hpp"
+#include "src/game/runtime/BattleScene.hpp"
 
 using namespace std;
 using namespace DirectX;
@@ -38,7 +38,7 @@ int main()
 	renderer.initialize(hwnd, 800, 600, true);
 
 	// 场景管理：使用智能指针管理当前场景
-	std::unique_ptr<Scene> currentScene = std::make_unique<PlayScene>();
+	std::unique_ptr<Scene> currentScene = std::make_unique<BattleScene>();
 	currentScene->init(&renderer);
 
 	// Create a Field and load models for platform and decoration
@@ -129,12 +129,12 @@ int main()
 				if (keyPress->code == sf::Keyboard::Key::Escape) {
 					window.close();
 				}
-				// 场景切换：按数字键1重新加载PlayScene
+				// 场景切换：按数字键1重新加载BattleScene
 				if (keyPress->code == sf::Keyboard::Key::Num1) {
 					currentScene.reset();
-					currentScene = std::make_unique<PlayScene>();
-					currentScene->init(&renderer);
-					printf("Switched to PlayScene\n");
+                                    currentScene = std::make_unique<BattleScene>();
+                                    currentScene->init(&renderer);
+                                    printf("Switched to BattleScene\n");
 				}
 			}
 			if (const auto* scroll = event->getIf<sf::Event::MouseWheelScrolled>()) {
