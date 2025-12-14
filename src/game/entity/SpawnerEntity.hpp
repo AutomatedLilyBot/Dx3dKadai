@@ -2,6 +2,7 @@
 #include <random>
 
 #include "StaticEntity.hpp"
+#include "../runtime/WorldContext.hpp"
 
 // 触发型生成器：自身带一个 OBB trigger，未被占用时周期性产出 Ball（通过命令缓冲）
 class SpawnerEntity : public StaticEntity {
@@ -20,6 +21,7 @@ public:
         std::vector<EntityId> overlappers;
         ctx.physics->getTriggerOverlappers(id(), overlappers);
         bool blocked = !overlappers.empty();
+        //bool blocked=false;
         if (!blocked && ctx.commands) {
             DirectX::XMFLOAT3 pos = transform.position;
             pos.y += spawnYOffset;
@@ -32,6 +34,7 @@ public:
             // pos.z+=jitter(rng);
 
             ctx.commands->spawnBall(pos, ballRadius);
+            wprintf(L"spawncmd sent\n");
             cooldown = spawnInterval;
         }
     }

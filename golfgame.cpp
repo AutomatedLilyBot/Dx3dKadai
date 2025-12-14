@@ -3,21 +3,18 @@
 
 #include "golfgame.h"
 #include "src/core/gfx/Renderer.hpp"
-#include "src/game/entity/Cube.hpp"
 #include "src/core/gfx/ModelLoader.hpp"
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <windows.h>
 #include <chrono>
-#include <array>
 #include <random>
 #include <DirectXMath.h>
 #include "src/core/gfx/Model.hpp"
 #include "src/game/world/Field.hpp"
 #include "src/game/entity/StaticEntity.hpp"
 #include "src/core/physics/Transform.hpp"
-#include "src/core/physics/Collider.hpp"
-#include "src/game/runtime/Scene.hpp"
+#include "src/game/runtime/PlayScene.hpp"
 
 using namespace std;
 using namespace DirectX;
@@ -40,9 +37,9 @@ int main()
 	Renderer renderer;
 	renderer.initialize(hwnd, 800, 600, true);
 
-	// 初始化调度系统（空场景）
-	Scene scene;
-	scene.init(&renderer);
+	// 场景管理：使用智能指针管理当前场景
+	std::unique_ptr<Scene> currentScene = std::make_unique<PlayScene>();
+	currentScene->init(&renderer);
 
 	// Create a Field and load models for platform and decoration
 	Field field;
@@ -132,6 +129,13 @@ int main()
 				if (keyPress->code == sf::Keyboard::Key::Escape) {
 					window.close();
 				}
+				// 场景切换：按数字键1重新加载PlayScene
+				if (keyPress->code == sf::Keyboard::Key::Num1) {
+					currentScene.reset();
+					currentScene = std::make_unique<PlayScene>();
+					currentScene->init(&renderer);
+					printf("Switched to PlayScene\n");
+				}
 			}
 			if (const auto* scroll = event->getIf<sf::Event::MouseWheelScrolled>()) {
 				renderer.getCamera().processMouseScroll(scroll->delta);
@@ -170,14 +174,18 @@ int main()
 			}
 		}
 
-		// 驱动场景调度（物理→更新→提交），当前为空实现，仅验证时序
-		scene.tick(deltaTime);
+		// 驱动场景调度（物理→更新→提交）
+		if (currentScene) {
+			currentScene->tick(deltaTime);
+		}
 
 		// Frame render
         renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
 
-		// 让 Scene 自行渲染其内部内容（最小演示：一个 cube）
-		scene.render();
+		// 让当前场景渲染其内容
+		if (currentScene) {
+			currentScene->render();
+		}
 
 		//renderer.drawColliderWire(*obb);
 		// Draw loaded model if available
