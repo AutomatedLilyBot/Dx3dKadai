@@ -12,7 +12,7 @@ public:
     Camera();
 
     // RTS-style input
-    void processKeyboard(bool forward, bool backward, bool left, bool right, bool rotateLeft, bool rotateRight, float deltaTime);
+    void processKeyboard(bool forward, bool backward, bool left, bool right, bool rotateLeft, bool rotateRight, bool boost, float deltaTime);
     void processMouseScroll(float delta);
 
     // Get matrices
@@ -43,6 +43,9 @@ public:
     // Smooth camera transition
     void update(float dt); // 处理相机平滑过渡动画
 
+    // Focus on target (F key): smoothly move camera to center the target
+    void focusOnTarget(const DirectX::XMFLOAT3& target);
+
 private:
     void updateVectors();
 
@@ -59,6 +62,7 @@ private:
 
     // Camera parameters
     float m_moveSpeed = 5.0f;
+    float m_moveSpeedBoost = 2.5f;  // 按住 Shift 时的速度倍数
     float m_fov = DirectX::XM_PIDIV2 * 1.2f;  // 60 degrees
     float m_nearPlane = 0.1f;
     float m_farPlane = 100.0f;

@@ -129,6 +129,8 @@ void BattleScene::createNodes() {
         node->transform.position = pos;
         node->team = team;
 
+        //node->modelBias.scale = XMFLOAT3{0.5f, 0.5f, 0.5f};
+
         // 本体碰撞体（主碰撞体，用于物理碰撞）
         auto cap = MakeCapsuleCollider(0.5f, 1.0f);
         cap->setDebugEnabled(true);

@@ -23,6 +23,10 @@ public:
     float lifetime = 10.0f;        // 最大生命周期（秒）
     float timeAlive = 0.0f;        // 已存活时间
 
+    // 发射者 ID（用于忽略碰撞）
+    EntityId shooterId = 0;
+    float ignoreShooterTime = 0.3f;  // 发射后忽略发射者的时间（秒）
+
     // 使用 ResourceManager 初始化（推荐）
     void initialize(float radius, const std::wstring &modelPath, ResourceManager *resMgr);
 

@@ -14,6 +14,11 @@ cbuffer LightCB : register(b1)
     float  gPadding3;
 }
 
+cbuffer MaterialCB : register(b2)
+{
+    float4 gBaseColorFactor;       // Material base color factor (RGBA)
+}
+
 // Texture and sampler
 Texture2D gTexture : register(t0);
 SamplerState gSampler : register(s0);
@@ -75,8 +80,8 @@ float4 PSMain(VSOut i) : SV_Target
     // Combine ambient and diffuse
     float3 lighting = gAmbientColor + diffuse;
 
-    // Final color = lighting * texture * vertex color
-    float4 finalColor = float4(lighting, 1.0f) * texColor * i.col;
+    // Final color = lighting * texture * vertex color * material base color
+    float4 finalColor = float4(lighting, 1.0f) * texColor * i.col * gBaseColorFactor;
 
     return finalColor;
 }

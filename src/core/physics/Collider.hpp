@@ -116,6 +116,11 @@ public:
     virtual bool intersectsRay(const DirectX::XMFLOAT3 &rayOrigin,
                                const DirectX::XMFLOAT3 &rayDir,
                                float &outDistance) const = 0;
+
+    // —— 新增：获取世界位置和旋转（Owner世界变换 + 自身局部偏移） ——
+    // 这些方法计算并返回碰撞体的最终世界位姿
+    virtual DirectX::XMFLOAT3 getWorldPosition() const = 0;
+    virtual DirectX::XMFLOAT3 getWorldRotationEuler() const = 0;
 };
 
 // Sphere：局部参数为 centerLocal（可选）+ radiusLocal；世界半径=radiusLocal*uniformScale

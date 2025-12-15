@@ -6,10 +6,11 @@ Camera::Camera() {
     updateVectors();
 }
 
-void Camera::processKeyboard(bool forward, bool backward, bool left, bool right, bool rotateLeft, bool rotateRight, float deltaTime) {
+void Camera::processKeyboard(bool forward, bool backward, bool left, bool right, bool rotateLeft, bool rotateRight, bool boost, float deltaTime) {
     if (m_mode == CameraMode::RTS) {
         // RTS 模式：WASD 在水平面上平移，QE 旋转
-        float velocity = m_moveSpeed * deltaTime;
+        float effectiveSpeed = boost ? (m_moveSpeed * m_moveSpeedBoost) : m_moveSpeed;
+        float velocity = effectiveSpeed * deltaTime;
 
         // 计算水平前方和右方向（忽略 Y 分量）
         XMFLOAT3 horizontalForward{sinf(m_yaw), 0, cosf(m_yaw)};
@@ -144,4 +145,31 @@ void Camera::update(float dt) {
     if (m_mode == CameraMode::Orbit) {
         setLookAt(m_orbitTarget);
     }
+}
+
+void Camera::focusOnTarget(const DirectX::XMFLOAT3& target) {
+    // 计算相机到目标的水平方向向量（保持当前高度、俯仰角和 yaw）
+    // 目标位置 = target - forward * distance（距离基于当前 forward 方向）
+
+    // 计算水平前方向（使用当前 yaw，忽略 pitch）
+    XMFLOAT3 horizontalForward{sinf(m_yaw), 0, cosf(m_yaw)};
+
+    // 设定观察距离（可以根据需要调整）
+    float viewDistance = 8.0f;
+
+    // 计算相机的新目标位置：从 target 往后退 viewDistance
+    XMVECTOR targetVec = XMLoadFloat3(&target);
+    XMVECTOR forwardVec = XMLoadFloat3(&horizontalForward);
+    XMVECTOR newPosVec = XMVectorSubtract(targetVec, XMVectorScale(forwardVec, viewDistance));
+
+    // 保持当前高度（Y 坐标不变）
+    XMFLOAT3 newPos;
+    XMStoreFloat3(&newPos, newPosVec);
+    newPos.y = m_position.y;  // 保持当前高度
+
+    // 设置目标位置并启动平滑过渡
+    m_targetPosition = newPos;
+    m_isTransitioning = true;
+
+    // pitch 和 yaw 保持不变（在 update() 中不会修改）
 }
