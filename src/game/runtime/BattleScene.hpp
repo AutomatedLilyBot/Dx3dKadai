@@ -25,6 +25,12 @@ public:
     // 访问 InputManager
     InputManager& inputManager() { return inputManager_; }
 
+    // 访问选中的 Node ID
+    EntityId selectedNodeId() const { return selectedNodeId_; }
+
+    // 访问 Node 实体（公开给外部使用）
+    NodeEntity* getNodeEntity(EntityId id);
+
 private:
     ResourceManager resourceManager_;
     Camera camera_;  // 场景管理的 Camera
@@ -35,7 +41,4 @@ private:
 
     void createField();
     void createNodes();
-
-    // 辅助函数：获取 Node 实体指针
-    NodeEntity* getNodeEntity(EntityId id);
 };

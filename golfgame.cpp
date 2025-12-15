@@ -86,15 +86,36 @@ int main()
 			// 调用场景的输入处理（鼠标点击交互）
 			currentScene->handleInput(deltaTime, &window);
 
-			// RTS 键盘输入 - WASD 平移，QE 旋转
+			// RTS 键盘输入 - WASD 平移，QE 旋转，Shift 加速
 			bool forward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W);
 			bool backward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
 			bool left = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A);
 			bool right = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D);
 			bool rotateLeft = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q);
 			bool rotateRight = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E);
+			bool boost = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
 
-			currentScene->camera().processKeyboard(forward, backward, left, right, rotateLeft, rotateRight, deltaTime);
+			currentScene->camera().processKeyboard(forward, backward, left, right, rotateLeft, rotateRight, boost, deltaTime);
+
+			// F 键：聚焦选中的 Node
+			static bool fWasPressed = false;
+			bool fPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F);
+			if (fPressed && !fWasPressed) {
+				// F 键按下瞬间触发
+				EntityId selectedId = currentScene->selectedNodeId();
+				if (selectedId != 0) {
+					NodeEntity* node = currentScene->getNodeEntity(selectedId);
+					if (node) {
+						currentScene->camera().focusOnTarget(node->transform.position);
+						printf("Focusing on Node %llu at (%.2f, %.2f, %.2f)\n",
+							selectedId,
+							node->transform.position.x,
+							node->transform.position.y,
+							node->transform.position.z);
+					}
+				}
+			}
+			fWasPressed = fPressed;
 		}
 
 		// 驱动场景调度（物理→更新→提交）

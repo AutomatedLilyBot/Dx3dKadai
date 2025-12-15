@@ -48,6 +48,7 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
     // Create constant buffers
     if (!CreateCB(m_dev.device(), sizeof(TransformCB), m_cbTransform.ReleaseAndGetAddressOf())) return false;
     if (!CreateCB(m_dev.device(), sizeof(LightCB), m_cbLight.ReleaseAndGetAddressOf())) return false;
+    if (!CreateCB(m_dev.device(), sizeof(MaterialCB), m_cbMaterial.ReleaseAndGetAddressOf())) return false;
 
     // Create default white texture (1x1 white)
     if (!m_defaultTexture.createSolidColor(m_dev.device(), 255, 255, 255, 255)) return false;
@@ -88,6 +89,7 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
 void Renderer::shutdown()
 {
     m_sampler.Reset();
+    m_cbMaterial.Reset();
     m_cbLight.Reset();
     m_cbTransform.Reset();
     m_defaultTexture = Texture{};
@@ -99,7 +101,7 @@ void Renderer::shutdown()
 void Renderer::beginFrame(float r,float g,float b,float a) { m_dev.clear(r,g,b,a); }
 void Renderer::endFrame() { m_dev.present(); }
 
-void Renderer::drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform) {
+void Renderer::drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform, const DirectX::XMFLOAT4 *baseColorFactor) {
     // Iterate through draw items and render each sub-mesh with its material
     for (const auto &di: model.drawItems) {
         if (di.meshIndex >= model.meshes.size()) continue;
@@ -112,7 +114,7 @@ void Renderer::drawModel(const Model &model, const DirectX::XMMATRIX &modelTrans
         DirectX::XMMATRIX nodeM = DirectX::XMLoadFloat4x4(&di.nodeGlobal);
         DirectX::XMMATRIX world = modelTransform;
         //DirectX::XMMATRIX world = modelTransform;
-        drawMesh(mg.mesh, world, tex ? *tex : m_defaultTexture);
+        drawMesh(mg.mesh, world, tex ? *tex : m_defaultTexture, baseColorFactor);
     }
 }
 
@@ -124,7 +126,9 @@ void Renderer::drawCube(const DirectX::XMMATRIX &worldTransform) {
 void Renderer::draw(const IDrawable &drawable) {
     const Model *m = drawable.model();
     if (m) {
-        drawModel(*m, drawable.world());
+        const Material *mat = drawable.material();
+        const DirectX::XMFLOAT4 *baseColor = mat ? &mat->baseColorFactor : nullptr;
+        drawModel(*m, drawable.world(), baseColor);
     }
 }
 
@@ -302,11 +306,16 @@ void Renderer::drawColliderWire(const ColliderBase &col) {
     cbLight.ambientColor = m_ambientColor;
     m_dev.context()->UpdateSubresource(m_cbLight.Get(), 0, nullptr, &cbLight, 0, 0);
 
+    // Material CB for debug lines (white)
+    MaterialCB cbMaterial{};
+    cbMaterial.baseColorFactor = XMFLOAT4(1, 1, 1, 1);
+    m_dev.context()->UpdateSubresource(m_cbMaterial.Get(), 0, nullptr, &cbMaterial, 0, 0);
+
     // Bind shader and CBs
     m_shader.bind(m_dev.context());
-    ID3D11Buffer *cbs[] = {m_cbTransform.Get(), m_cbLight.Get()};
-    m_dev.context()->VSSetConstantBuffers(0, 2, cbs);
-    m_dev.context()->PSSetConstantBuffers(0, 2, cbs);
+    ID3D11Buffer *cbs[] = {m_cbTransform.Get(), m_cbLight.Get(), m_cbMaterial.Get()};
+    m_dev.context()->VSSetConstantBuffers(0, 3, cbs);
+    m_dev.context()->PSSetConstantBuffers(0, 3, cbs);
 
     // Bind default white texture and sampler
     ID3D11ShaderResourceView *srv = m_defaultTexture.srv();
@@ -424,11 +433,16 @@ void Renderer::drawContactGizmo(const OverlapResult &contact, const XMFLOAT4 &co
     cbLight.ambientColor = m_ambientColor;
     m_dev.context()->UpdateSubresource(m_cbLight.Get(), 0, nullptr, &cbLight, 0, 0);
 
+    // Material CB for contact gizmo (white)
+    MaterialCB cbMaterial{};
+    cbMaterial.baseColorFactor = XMFLOAT4(1, 1, 1, 1);
+    m_dev.context()->UpdateSubresource(m_cbMaterial.Get(), 0, nullptr, &cbMaterial, 0, 0);
+
     // Bind shader and CBs
     m_shader.bind(m_dev.context());
-    ID3D11Buffer *cbs[] = {m_cbTransform.Get(), m_cbLight.Get()};
-    m_dev.context()->VSSetConstantBuffers(0, 2, cbs);
-    m_dev.context()->PSSetConstantBuffers(0, 2, cbs);
+    ID3D11Buffer *cbs[] = {m_cbTransform.Get(), m_cbLight.Get(), m_cbMaterial.Get()};
+    m_dev.context()->VSSetConstantBuffers(0, 3, cbs);
+    m_dev.context()->PSSetConstantBuffers(0, 3, cbs);
 
     // Bind default texture and sampler
     ID3D11ShaderResourceView *srv = m_defaultTexture.srv();
@@ -460,7 +474,7 @@ void Renderer::drawContactsGizmo(const std::vector<OverlapResult> &contacts,
     for (const auto &c: contacts) drawContactGizmo(c, color, scale);
 }
 
-void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, const Texture& texture)
+void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, const Texture& texture, const DirectX::XMFLOAT4 *baseColorFactor)
 {
     using namespace DirectX;
 
@@ -484,13 +498,18 @@ void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, co
     cbLight.ambientColor = m_ambientColor;
     m_dev.context()->UpdateSubresource(m_cbLight.Get(), 0, nullptr, &cbLight, 0, 0);
 
+    // Update material constant buffer
+    MaterialCB cbMaterial{};
+    cbMaterial.baseColorFactor = baseColorFactor ? *baseColorFactor : XMFLOAT4(1, 1, 1, 1);
+    m_dev.context()->UpdateSubresource(m_cbMaterial.Get(), 0, nullptr, &cbMaterial, 0, 0);
+
     // Bind shader
     m_shader.bind(m_dev.context());
 
     // Bind constant buffers
-    ID3D11Buffer* cbs[] = { m_cbTransform.Get(), m_cbLight.Get() };
-    m_dev.context()->VSSetConstantBuffers(0, 2, cbs);
-    m_dev.context()->PSSetConstantBuffers(0, 2, cbs);
+    ID3D11Buffer* cbs[] = { m_cbTransform.Get(), m_cbLight.Get(), m_cbMaterial.Get() };
+    m_dev.context()->VSSetConstantBuffers(0, 3, cbs);
+    m_dev.context()->PSSetConstantBuffers(0, 3, cbs);
 
     // Bind texture and sampler (prefer provided texture, fallback to default)
     ID3D11ShaderResourceView* srv = texture.isValid() ? texture.srv() : m_defaultTexture.srv();

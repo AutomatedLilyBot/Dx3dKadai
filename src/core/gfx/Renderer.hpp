@@ -22,10 +22,10 @@ public:
     void endFrame();
 
     // Draw mesh with transform matrix and texture
-    void drawMesh(const Mesh &mesh, const DirectX::XMMATRIX &transform, const Texture &texture);
+    void drawMesh(const Mesh &mesh, const DirectX::XMMATRIX &transform, const Texture &texture, const DirectX::XMFLOAT4 *baseColorFactor = nullptr);
 
     // Draw a full model: iterate draw items, combine model transform with node transforms
-    void drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform);
+    void drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform, const DirectX::XMFLOAT4 *baseColorFactor = nullptr);
 
     // Draw via drawable interface (adapter)
     void draw(const IDrawable &drawable);
@@ -89,6 +89,10 @@ private:
         float padding3;
     };
 
+    struct MaterialCB {
+        DirectX::XMFLOAT4 baseColorFactor;
+    };
+
     RenderDeviceD3D11 m_dev;
     ShaderProgram m_shader;
     Mesh m_cube;
@@ -98,6 +102,7 @@ private:
 
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbTransform;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbLight;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbMaterial;
     Microsoft::WRL::ComPtr<ID3D11SamplerState> m_sampler;
 
     // Dynamic vertex buffer for debug lines

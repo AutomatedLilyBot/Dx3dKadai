@@ -3,6 +3,7 @@
 #include "core/resource/ResourceManager.hpp"
 #include <DirectXMath.h>
 
+#include "NodeEntity.hpp"
 #include "game/runtime/WorldContext.hpp"
 
 using namespace DirectX;
@@ -74,8 +75,20 @@ void BulletEntity::onCollision(WorldContext &ctx, EntityId other, TriggerPhase p
     if (phase != TriggerPhase::Enter) return;
     auto *otherEntity = ctx.entities->getEntity(other);
     if (!otherEntity) return;
+
+    // 忽略发射者的碰撞（在一段时间内）
+    if (other == shooterId && timeAlive < ignoreShooterTime) {
+        return;
+    }
+
+
     if (dynamic_cast<BlockEntity *>(otherEntity)) {
         // Collision with BlockEntity is handled by BlockEntity::onCollision (responseType), so do nothing here.
+    }
+    else if (dynamic_cast<NodeEntity *>(otherEntity)) {
+        NodeEntity* hitnode=dynamic_cast<NodeEntity *>(otherEntity);
+        hitnode->onHitByBullet(ctx,this->team);
+        ctx.commands->destroyEntity(id());
     }
 }
 

@@ -140,6 +140,22 @@ namespace {
             return true;
         }
 
+        // 获取世界位置（Owner世界位置 + 旋转后的局部偏移）
+        XMFLOAT3 getWorldPosition() const override {
+            return centerWorld();  // 球体的世界位置就是中心点
+        }
+
+        // 获取世界旋转（Owner世界旋转 + 局部旋转）
+        XMFLOAT3 getWorldRotationEuler() const override {
+            // 组合旋转：局部旋转 * Owner旋转
+            // 对于欧拉角，简单相加（近似，严格应该用四元数）
+            return XMFLOAT3{
+                m_ownerRot.x + m_localRot.x,
+                m_ownerRot.y + m_localRot.y,
+                m_ownerRot.z + m_localRot.z
+            };
+        }
+
     private:
         // Owner 世界位姿
         XMFLOAT3 m_ownerPos{0, 0, 0};
@@ -313,6 +329,22 @@ namespace {
             return true;
         }
 
+        // 获取世界位置（Owner世界位置 + 旋转后的局部偏移）
+        XMFLOAT3 getWorldPosition() const override {
+            return centerWorld();  // OBB的世界位置就是中心点
+        }
+
+        // 获取世界旋转（Owner世界旋转 + 局部旋转）
+        XMFLOAT3 getWorldRotationEuler() const override {
+            // 组合旋转：局部旋转 * Owner旋转
+            // 对于欧拉角，简单相加（近似，严格应该用四元数）
+            return XMFLOAT3{
+                m_ownerRot.x + m_localRot.x,
+                m_ownerRot.y + m_localRot.y,
+                m_ownerRot.z + m_localRot.z
+            };
+        }
+
     private:
         XMFLOAT3 m_ownerPos{0, 0, 0};
         XMFLOAT3 m_ownerRot{0, 0, 0};
@@ -460,6 +492,29 @@ namespace {
             if (tMin == FLT_MAX) return false;
             outDistance = tMin;
             return true;
+        }
+
+        // 获取世界位置（Owner世界位置 + 旋转后的局部偏移）
+        XMFLOAT3 getWorldPosition() const override {
+            // Capsule的世界位置是线段中点
+            auto seg = segmentWorld();
+            XMFLOAT3 p0 = seg.first, p1 = seg.second;
+            return XMFLOAT3{
+                (p0.x + p1.x) * 0.5f,
+                (p0.y + p1.y) * 0.5f,
+                (p0.z + p1.z) * 0.5f
+            };
+        }
+
+        // 获取世界旋转（Owner世界旋转 + 局部旋转）
+        XMFLOAT3 getWorldRotationEuler() const override {
+            // 组合旋转：局部旋转 * Owner旋转
+            // 对于欧拉角，简单相加（近似，严格应该用四元数）
+            return XMFLOAT3{
+                m_ownerRot.x + m_localRot.x,
+                m_ownerRot.y + m_localRot.y,
+                m_ownerRot.z + m_localRot.z
+            };
         }
 
         // Capsule specifics

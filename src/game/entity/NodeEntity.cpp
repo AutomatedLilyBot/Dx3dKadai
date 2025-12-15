@@ -12,6 +12,17 @@ void NodeEntity::update(WorldContext &ctx, float dt) {
             fireTimer = 0.0f;
         }
     }
+    switch (this->team) {
+        case NodeTeam::Friendly:
+            this->materialData.baseColorFactor=XMFLOAT4(0,0,1,1);
+            break;
+        case NodeTeam::Neutral:
+            this->materialData.baseColorFactor=XMFLOAT4(1,1,1,1);
+            break;
+        case NodeTeam::Enemy:
+            this->materialData.baseColorFactor=XMFLOAT4(1,0,0,1);
+            break;
+    }
 }
 
 void NodeEntity::setFacingDirection(const DirectX::XMFLOAT3 &worldTarget) {
@@ -29,7 +40,7 @@ void NodeEntity::setFacingDirection(const DirectX::XMFLOAT3 &worldTarget) {
 
 bool NodeEntity::isFrontClear(WorldContext &ctx) const {
     ColliderBase* trigger=colliders_.at(1).get();
-    if (!trigger&&!trigger->isTrigger()) return false;
+    if (!trigger||!trigger->isTrigger()) return false;
 
     return !ctx.physics->isAnyTriggerOverlapping(id());
 }
@@ -38,7 +49,8 @@ void NodeEntity::fireBullet(WorldContext &ctx) {
     if (!ctx.commands) return;
     ctx.commands->spawn<BulletEntity>([&](BulletEntity *b) {
         b->team = team;
-        b->transform.position = transform.position;
+        b->shooterId = this->id();  // 设置发射者 ID，避免刚生成就碰撞
+        b->transform.position = this->colliders_.at(1).get()->getWorldPosition();
         // 使用 ResourceManager 初始化（从 WorldContext 获取）
         b->initialize(bulletRadius, L"asset/ball.fbx", ctx.resources);
         b->rb.invMass = 1.0f;
