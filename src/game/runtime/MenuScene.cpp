@@ -29,10 +29,10 @@ void MenuScene::init(Renderer *renderer) {
         }
     };
 
-    tryLoad(background_, L"menu_background.png", DirectX::XMFLOAT4{0.1f, 0.1f, 0.15f, 1.0f});
-    tryLoad(title_, L"menu_title.png", DirectX::XMFLOAT4{0.8f, 0.8f, 0.8f, 1.0f});
+    tryLoad(background_, L"menu_background.png", DirectX::XMFLOAT4{1, 1, 1, 1.0f});
+    tryLoad(title_, L"menu_title.png", DirectX::XMFLOAT4{1.0f, 1.0f, 1.0f, 1.0f});
     tryLoad(startButton_, L"menu_start.png", DirectX::XMFLOAT4{0.2f, 0.5f, 0.2f, 1.0f});
-    tryLoad(exitButton_, L"menu_exit.png", DirectX::XMFLOAT4{0.5f, 0.2f, 0.2f, 1.0f});
+    tryLoad(exitButton_, L"menu_end.png", DirectX::XMFLOAT4{0.5f, 0.2f, 0.2f, 1.0f});
 }
 
 void MenuScene::tick(float dt) {

@@ -19,7 +19,7 @@ void TransitionScene::init(Renderer *renderer) {
     if (renderer_ && renderer_->device()) {
         std::wstring path = ExeDirTransition() + L"\\asset\\loading.png";
         if (!loadingTexture_.loadFromFile(renderer_->device(), path)) {
-            loadingTexture_.createSolidColor(renderer_->device(), 30, 30, 30, 255);
+            loadingTexture_.createSolidColor(renderer_->device(), 255, 255, 255, 255);
         }
     }
 }

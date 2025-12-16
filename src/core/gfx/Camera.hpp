@@ -71,7 +71,7 @@ private:
     CameraMode m_mode = CameraMode::RTS;
 
     // RTS mode parameters
-    float m_rtsHeight = 10.0f;              // 固定高度
+    float m_rtsHeight = 8.0f;              // 固定高度
     float m_rtsPitch = -DirectX::XM_PIDIV4; // 固定俯视角度（-45°）
     float m_rotateSpeed = 1.0f;              // QE 旋转速度
 

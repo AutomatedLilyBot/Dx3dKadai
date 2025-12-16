@@ -1,10 +1,12 @@
-#include "BattleScene.hpp"
+﻿#include "BattleScene.hpp"
 #include "MenuScene.hpp"
 #include "TransitionScene.hpp"
 
 #include <corecrt_startup.h>
 #include <windows.h>
 #include <string>
+
+#include "SceneManager.hpp"
 
 using namespace DirectX;
 

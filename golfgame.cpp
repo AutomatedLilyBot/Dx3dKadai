@@ -105,27 +105,12 @@ int main()
                                 window.close();
                         }
                 }
-
-                // 驱动场景调度（物理→更新→提交）
-                sceneManager.tick(deltaTime);
-
+		// 驱动场景调度（物理→更新→提交）
+		sceneManager.tick(deltaTime);
 		// Frame render
         renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
-
-                // 让当前场景渲染其内容
-                sceneManager.render();
-
-		//renderer.drawColliderWire(*obb);
-		// Draw loaded model if available
-		// if (modelLoaded) {
-		// 	XMMATRIX S = XMMatrixScaling(10.0f, 10.0f, 10.0f);
-		//	XMMATRIX R = XMMatrixRotationY(time_in_seconds * 0.5f);
-		//	XMMATRIX T = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
-		//	XMMATRIX M = S * R * T;
-		//	renderer.drawMesh(modelMesh, M, modelTex);
-		//}
-
-
+		// 让当前场景渲染其内容
+		sceneManager.render();
 		renderer.endFrame();
 	}
 

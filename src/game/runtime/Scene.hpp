@@ -29,7 +29,7 @@ public:
     virtual void init(Renderer *renderer) = 0;
 
     // 每帧更新
-    void tick(float dt) {
+    virtual void tick(float dt) {
         time_ += dt;
 
         // 0.5) 物理前：将外部直接改动的 Transform 写入 PhysicsWorld
