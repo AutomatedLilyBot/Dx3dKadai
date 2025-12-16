@@ -14,7 +14,9 @@
 #include "src/game/world/Field.hpp"
 #include "src/game/entity/StaticEntity.hpp"
 #include "src/core/physics/Transform.hpp"
-#include "src/game/runtime/PlayScene.hpp"
+#include "src/game/runtime/BattleScene.hpp"
+#include "src/game/runtime/MenuScene.hpp"
+#include "src/game/runtime/TransitionScene.hpp"
 
 using namespace std;
 using namespace DirectX;
@@ -37,9 +39,15 @@ int main()
 	Renderer renderer;
 	renderer.initialize(hwnd, 800, 600, true);
 
-	// 场景管理：使用智能指针管理当前场景
-	std::unique_ptr<Scene> currentScene = std::make_unique<PlayScene>();
-	currentScene->init(&renderer);
+        // 场景管理：使用智能指针管理当前场景
+        std::unique_ptr<Scene> currentScene = std::make_unique<MenuScene>();
+        currentScene->init(&renderer);
+
+        auto startTransition = [&](std::unique_ptr<Scene> target) {
+                auto transit = std::make_unique<TransitionScene>(std::move(target));
+                transit->init(&renderer);
+                currentScene = std::move(transit);
+        };
 
 	// Create a Field and load models for platform and decoration
 	Field field;
@@ -129,18 +137,19 @@ int main()
 				if (keyPress->code == sf::Keyboard::Key::Escape) {
 					window.close();
 				}
-				// 场景切换：按数字键1重新加载PlayScene
-				if (keyPress->code == sf::Keyboard::Key::Num1) {
-					currentScene.reset();
-					currentScene = std::make_unique<PlayScene>();
-					currentScene->init(&renderer);
-					printf("Switched to PlayScene\n");
-				}
-			}
-			if (const auto* scroll = event->getIf<sf::Event::MouseWheelScrolled>()) {
-				renderer.getCamera().processMouseScroll(scroll->delta);
-			}
-		}
+                            // 场景切换：Enter 在菜单中开始游戏
+                                if (keyPress->code == sf::Keyboard::Key::Enter) {
+                                        if (dynamic_cast<MenuScene *>(currentScene.get()) != nullptr) {
+                                                startTransition(std::make_unique<BattleScene>());
+                                        } else if (dynamic_cast<BattleScene *>(currentScene.get()) != nullptr) {
+                                                startTransition(std::make_unique<MenuScene>());
+                                        }
+                                }
+                        }
+                        if (const auto* scroll = event->getIf<sf::Event::MouseWheelScrolled>()) {
+                                renderer.getCamera().processMouseScroll(scroll->delta);
+                        }
+                }
 
 		// 键盘输入 - WASD移动，Space/Shift上下移动
 		bool forward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W);
@@ -175,17 +184,26 @@ int main()
 		}
 
 		// 驱动场景调度（物理→更新→提交）
-		if (currentScene) {
-			currentScene->tick(deltaTime);
-		}
+                if (currentScene) {
+                        currentScene->tick(deltaTime);
+                        if (auto *transition = dynamic_cast<TransitionScene *>(currentScene.get())) {
+                                if (transition->isComplete()) {
+                                        auto nextScene = transition->takeNextScene();
+                                        if (nextScene) {
+                                                nextScene->init(&renderer);
+                                                currentScene = std::move(nextScene);
+                                        }
+                                }
+                        }
+                }
 
 		// Frame render
         renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
 
 		// 让当前场景渲染其内容
-		if (currentScene) {
-			currentScene->render();
-		}
+                if (currentScene) {
+                        currentScene->render();
+                }
 
 		//renderer.drawColliderWire(*obb);
 		// Draw loaded model if available

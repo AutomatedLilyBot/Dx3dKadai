@@ -15,6 +15,12 @@ static const D3D11_INPUT_ELEMENT_DESC kLayout[] = {
     { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 };
 
+static const D3D11_INPUT_ELEMENT_DESC kUILayout[] = {
+    {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+};
+
 static std::wstring ExeDir() {
     wchar_t buf[MAX_PATH]; GetModuleFileNameW(nullptr, buf, MAX_PATH);
     std::wstring s(buf); auto p = s.find_last_of(L"\\/");
@@ -43,6 +49,13 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
     }
     wprintf(L"Shader compiled successfully\n");
 
+    std::wstring uiHlsl = ExeDir() + L"\\shader\\ui.hlsl";
+    wprintf(L"Compiling UI shader from: %s\n", uiHlsl.c_str());
+    if (!m_uiShader.compileFromFile(m_dev.device(), uiHlsl, kUILayout, _countof(kUILayout))) {
+        wprintf(L"ERROR: Failed to compile UI shader!\n");
+        return false;
+    }
+
     if (!m_cube.createCube(m_dev.device(), 1.0f)) return false;
 
     // Create constant buffers
@@ -51,6 +64,8 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
 
     // Create default white texture (1x1 white)
     if (!m_defaultTexture.createSolidColor(m_dev.device(), 255, 255, 255, 255)) return false;
+
+    if (!m_uiQuad.createQuadXY(m_dev.device())) return false;
 
     // Create sampler state
     D3D11_SAMPLER_DESC sampDesc{};
@@ -126,6 +141,32 @@ void Renderer::draw(const IDrawable &drawable) {
     if (m) {
         drawModel(*m, drawable.world());
     }
+}
+
+void Renderer::drawFullscreenQuad(const Texture &texture) {
+    ID3D11DeviceContext *ctx = m_dev.context();
+    if (!ctx) return;
+
+    ID3D11Buffer *vb = m_uiQuad.vertexBuffer();
+    ID3D11Buffer *ib = m_uiQuad.indexBuffer();
+    if (!vb || !ib) return;
+
+    UINT stride = m_uiQuad.stride();
+    UINT offset = 0;
+    ctx->IASetInputLayout(m_uiShader.inputLayout());
+    ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+    ctx->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
+    ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    m_uiShader.bind(ctx);
+
+    ID3D11ShaderResourceView *srv = texture.srv();
+    if (!srv) srv = m_defaultTexture.srv();
+    ctx->PSSetShaderResources(0, 1, &srv);
+    ID3D11SamplerState *samp = m_sampler.Get();
+    ctx->PSSetSamplers(0, 1, &samp);
+
+    ctx->DrawIndexed(m_uiQuad.indexCount(), 0, 0);
 }
 
 // ---- Debug line rendering for colliders ----

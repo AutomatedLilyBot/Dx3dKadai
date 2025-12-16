@@ -26,6 +26,7 @@ bool Mesh::createQuadXY(ID3D11Device *dev, float w, float h, float z) {
 
     const uint16_t idx[6] = {0, 1, 2, 0, 2, 3};
     m_indexCount = 6;
+    m_stride = sizeof(VertexPNV);
 
 
     D3D11_BUFFER_DESC vbDesc{};

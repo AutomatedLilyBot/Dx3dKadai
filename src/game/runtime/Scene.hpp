@@ -63,6 +63,9 @@ public:
         ctx.entities = &entityQuery;
         ctx.commands = &cmdBuffer_;
 
+        // 3.0) 场景层更新
+        onUpdate(ctx, dt);
+
         // 3.1) 派发 onCollision
         for (const auto &ev: frameCollisionEvents_) {
             auto it = id2ptr_.find(ev.a);
@@ -82,7 +85,7 @@ public:
     }
 
     // 渲染场景
-    void render() {
+    virtual void render() {
         if (!renderer_) return;
         for (auto &ptr: entities_) {
             if (!ptr) continue;
@@ -107,6 +110,8 @@ public:
 
 protected:
     // 子类可用的工具方法
+    virtual void onUpdate(WorldContext &, float) {}
+
     void setupPhysicsCallback() {
         world_.setTriggerCallback([this](EntityId a, EntityId b, TriggerPhase phase, const OverlapResult &contact) {
             // 1) 缓存碰撞事件（双向）

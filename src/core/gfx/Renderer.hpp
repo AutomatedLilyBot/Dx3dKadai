@@ -30,6 +30,12 @@ public:
     // Draw via drawable interface (adapter)
     void draw(const IDrawable &drawable);
 
+    // Draw a simple textured full-screen quad for UI overlays
+    void drawFullscreenQuad(const Texture &texture);
+
+    // Access default texture for callers needing a placeholder
+    const Texture &defaultTexture() const { return m_defaultTexture; }
+
     // Debug draw helpers for colliders (wireframe via line list)
     void drawColliderWire(const ColliderBase &col);
 
@@ -80,7 +86,9 @@ private:
 
     RenderDeviceD3D11 m_dev;
     ShaderProgram m_shader;
+    ShaderProgram m_uiShader;
     Mesh m_cube;
+    Mesh m_uiQuad;
     Texture m_defaultTexture;
     Camera m_camera;
 
