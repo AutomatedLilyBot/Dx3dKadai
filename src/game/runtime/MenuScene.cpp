@@ -39,7 +39,7 @@ void MenuScene::tick(float dt) {
     (void) dt;
     if (startRequested_ && manager_) {
         startRequested_ = false;
-        manager_->transitionTo(std::make_unique<TransitionScene>(std::make_unique<BattleScene>()));
+        manager_->transitionTo(std::make_unique<BattleScene>());
     }
 }
 
