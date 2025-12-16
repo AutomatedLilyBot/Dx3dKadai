@@ -1,4 +1,6 @@
-﻿#include "BattleScene.hpp"
+#include "BattleScene.hpp"
+#include "MenuScene.hpp"
+#include "TransitionScene.hpp"
 
 #include <corecrt_startup.h>
 #include <windows.h>
@@ -209,13 +211,13 @@ void BattleScene::handleInput(float dt, const void* window) {
                 inputManager_.deselectNode();
                 printf("Clicked non-friendly entity, deselecting\n");
             }
-        } else {
-            // 没有击中任何物体，取消选择
-            selectedNodeId_ = 0;
-            inputManager_.deselectNode();
-            printf("Clicked empty space, deselecting\n");
-        }
+    } else {
+        // 没有击中任何物体，取消选择
+        selectedNodeId_ = 0;
+        inputManager_.deselectNode();
+        printf("Clicked empty space, deselecting\n");
     }
+}
 
     leftWasPressed = leftPressed;
 
@@ -274,6 +276,21 @@ void BattleScene::handleInput(float dt, const void* window) {
 
     // === 右键长按：绕 Node 旋转相机（Orbit 模式的鼠标控制在 main.cpp 中处理）===
     // 这里不需要额外处理，processMouseMove 会在 Orbit 模式下自动生效
+
+    static bool victoryWasPressed = false;
+    static bool defeatWasPressed = false;
+    bool victoryPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::V);
+    bool defeatPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::B);
+
+    if (victoryPressed && !victoryWasPressed && manager_) {
+        manager_->transitionTo(std::make_unique<MenuScene>());
+    }
+    if (defeatPressed && !defeatWasPressed && manager_) {
+        manager_->transitionTo(std::make_unique<MenuScene>());
+    }
+
+    victoryWasPressed = victoryPressed;
+    defeatWasPressed = defeatPressed;
 }
 
 NodeEntity* BattleScene::getNodeEntity(EntityId id) {
