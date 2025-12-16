@@ -59,6 +59,11 @@ public:
     // 设置当前帧使用的 Camera（由 Scene 提供）
     void setCamera(const Camera* camera) { m_externalCamera = camera; }
 
+    void drawUiQuad(float x, float y, float width, float height,
+                    ID3D11ShaderResourceView *texture,
+                    const DirectX::XMFLOAT4 &tint);
+    const Texture &defaultTexture() const { return m_defaultTexture; }
+
     // Temporary accessor for cube mesh (for demo purposes)
     const Mesh &getCubeMesh() const { return m_cube; }
 
@@ -93,8 +98,13 @@ private:
         DirectX::XMFLOAT4 baseColorFactor;
     };
 
+    struct UiCB {
+        DirectX::XMFLOAT4 tint;
+    };
+
     RenderDeviceD3D11 m_dev;
     ShaderProgram m_shader;
+    ShaderProgram m_uiShader;
     Mesh m_cube;
     Texture m_defaultTexture;
     Camera m_camera; // 保留作为后备，用于兼容旧代码
@@ -104,6 +114,10 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbLight;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbMaterial;
     Microsoft::WRL::ComPtr<ID3D11SamplerState> m_sampler;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbUi;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_uiVB;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_uiDepthState;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_depthState;
 
     // Dynamic vertex buffer for debug lines
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_debugVB;

@@ -15,6 +15,8 @@
 #include "src/game/entity/StaticEntity.hpp"
 #include "src/core/physics/Transform.hpp"
 #include "src/game/runtime/BattleScene.hpp"
+#include "src/game/runtime/MenuScene.hpp"
+#include "src/game/runtime/SceneManager.hpp"
 
 using namespace std;
 using namespace DirectX;
@@ -37,9 +39,8 @@ int main()
 	Renderer renderer;
 	renderer.initialize(hwnd, 1280, 720, true);
 
-	// 场景管理：使用智能指针管理当前场景
-	std::unique_ptr<BattleScene> currentScene = std::make_unique<BattleScene>();
-	currentScene->init(&renderer);
+        SceneManager sceneManager(&renderer);
+        sceneManager.setScene(std::make_unique<MenuScene>());
 
 	// 获取程序启动时间和帧时间
 	auto startTime = std::chrono::high_resolution_clock::now();
@@ -56,80 +57,63 @@ int main()
 
 		// 处理事件
 		while (auto event = window.pollEvent()) {
-			if (event->is<sf::Event::Closed>()) {
-				window.close();
-			}
-			if (const auto* keyPress = event->getIf<sf::Event::KeyPressed>()) {
-				if (keyPress->code == sf::Keyboard::Key::Escape) {
-					window.close();
-				}
-				// 场景切换：按数字键1重新加载BattleScene
-				if (keyPress->code == sf::Keyboard::Key::Num1) {
-					currentScene.reset();
-                                    currentScene = std::make_unique<BattleScene>();
-                                    currentScene->init(&renderer);
-                                    printf("Switched to BattleScene\n");
-				}
-			}
-			if (const auto* scroll = event->getIf<sf::Event::MouseWheelScrolled>()) {
-				if (currentScene) {
-					currentScene->camera().processMouseScroll(scroll->delta);
-				}
-			}
-		}
+                        if (event->is<sf::Event::Closed>()) {
+                                window.close();
+                        }
+                        if (const auto* scroll = event->getIf<sf::Event::MouseWheelScrolled>()) {
+                                if (auto* battle = dynamic_cast<BattleScene*>(sceneManager.currentScene())) {
+                                        battle->camera().processMouseScroll(scroll->delta);
+                                }
+                        }
+                }
 
-		// 输入处理
-		if (currentScene) {
-			// 更新右键状态（用于 InputManager 的长按/短按检测）
-			currentScene->inputManager().setRightButtonDown(sf::Mouse::isButtonPressed(sf::Mouse::Button::Right));
+                // 输入处理
+                sceneManager.handleInput(deltaTime, &window);
 
-			// 调用场景的输入处理（鼠标点击交互）
-			currentScene->handleInput(deltaTime, &window);
+                if (auto* battleScene = dynamic_cast<BattleScene*>(sceneManager.currentScene())) {
+                        battleScene->inputManager().setRightButtonDown(sf::Mouse::isButtonPressed(sf::Mouse::Button::Right));
 
-			// RTS 键盘输入 - WASD 平移，QE 旋转，Shift 加速
-			bool forward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W);
-			bool backward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
-			bool left = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A);
-			bool right = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D);
-			bool rotateLeft = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q);
-			bool rotateRight = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E);
-			bool boost = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
+                        bool forward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W);
+                        bool backward = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
+                        bool left = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A);
+                        bool right = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D);
+                        bool rotateLeft = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q);
+                        bool rotateRight = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E);
+                        bool boost = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
 
-			currentScene->camera().processKeyboard(forward, backward, left, right, rotateLeft, rotateRight, boost, deltaTime);
+                        battleScene->camera().processKeyboard(forward, backward, left, right, rotateLeft, rotateRight, boost, deltaTime);
 
-			// F 键：聚焦选中的 Node
-			static bool fWasPressed = false;
-			bool fPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F);
-			if (fPressed && !fWasPressed) {
-				// F 键按下瞬间触发
-				EntityId selectedId = currentScene->selectedNodeId();
-				if (selectedId != 0) {
-					NodeEntity* node = currentScene->getNodeEntity(selectedId);
-					if (node) {
-						currentScene->camera().focusOnTarget(node->transform.position);
-						printf("Focusing on Node %llu at (%.2f, %.2f, %.2f)\n",
-							selectedId,
-							node->transform.position.x,
-							node->transform.position.y,
-							node->transform.position.z);
-					}
-				}
-			}
-			fWasPressed = fPressed;
-		}
+                        static bool fWasPressed = false;
+                        bool fPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F);
+                        if (fPressed && !fWasPressed) {
+                                EntityId selectedId = battleScene->selectedNodeId();
+                                if (selectedId != 0) {
+                                        NodeEntity* node = battleScene->getNodeEntity(selectedId);
+                                        if (node) {
+                                                battleScene->camera().focusOnTarget(node->transform.position);
+                                                printf("Focusing on Node %llu at (%.2f, %.2f, %.2f)\n",
+                                                       selectedId,
+                                                       node->transform.position.x,
+                                                       node->transform.position.y,
+                                                       node->transform.position.z);
+                                        }
+                                }
+                        }
+                        fWasPressed = fPressed;
+                } else if (auto* menuScene = dynamic_cast<MenuScene*>(sceneManager.currentScene())) {
+                        if (menuScene->exitRequested()) {
+                                window.close();
+                        }
+                }
 
-		// 驱动场景调度（物理→更新→提交）
-		if (currentScene) {
-			currentScene->tick(deltaTime);
-		}
+                // 驱动场景调度（物理→更新→提交）
+                sceneManager.tick(deltaTime);
 
 		// Frame render
         renderer.beginFrame(0.0f, 0.0f, 1.0f, 1);
 
-		// 让当前场景渲染其内容
-		if (currentScene) {
-			currentScene->render();
-		}
+                // 让当前场景渲染其内容
+                sceneManager.render();
 
 		//renderer.drawColliderWire(*obb);
 		// Draw loaded model if available

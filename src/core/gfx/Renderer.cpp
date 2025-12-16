@@ -4,6 +4,7 @@
 #include <cmath>
 #include <string>
 #include <algorithm>
+#include <cstring>
 #include "../render/Drawable.hpp"
 #include <vector>
 using namespace DirectX;
@@ -13,6 +14,11 @@ static const D3D11_INPUT_ELEMENT_DESC kLayout[] = {
     { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
     { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
     { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+};
+
+static const D3D11_INPUT_ELEMENT_DESC kUiLayout[] = {
+    { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 };
 
 static std::wstring ExeDir() {
@@ -43,12 +49,21 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
     }
     wprintf(L"Shader compiled successfully\n");
 
+    std::wstring uiHlsl = ExeDir() + L"\\shader\\ui.hlsl";
+    wprintf(L"Compiling UI shader from: %s\n", uiHlsl.c_str());
+    if (!m_uiShader.compileFromFile(m_dev.device(), uiHlsl, kUiLayout, _countof(kUiLayout),
+                                    "VSMain", "PSMain")) {
+        wprintf(L"ERROR: Failed to compile UI shader!\n");
+        return false;
+    }
+
     if (!m_cube.createCube(m_dev.device(), 1.0f)) return false;
 
     // Create constant buffers
     if (!CreateCB(m_dev.device(), sizeof(TransformCB), m_cbTransform.ReleaseAndGetAddressOf())) return false;
     if (!CreateCB(m_dev.device(), sizeof(LightCB), m_cbLight.ReleaseAndGetAddressOf())) return false;
     if (!CreateCB(m_dev.device(), sizeof(MaterialCB), m_cbMaterial.ReleaseAndGetAddressOf())) return false;
+    if (!CreateCB(m_dev.device(), sizeof(UiCB), m_cbUi.ReleaseAndGetAddressOf())) return false;
 
     // Create default white texture (1x1 white)
     if (!m_defaultTexture.createSolidColor(m_dev.device(), 255, 255, 255, 255)) return false;
@@ -81,7 +96,21 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
     dsd.DepthWriteMask=D3D11_DEPTH_WRITE_MASK_ALL;
     dsd.DepthFunc=D3D11_COMPARISON_LESS;
     m_dev.device()->CreateDepthStencilState(&dsd, dss.GetAddressOf());
+    m_depthState = dss;
     m_dev.context()->OMSetDepthStencilState(dss.Get(), 0);
+
+    D3D11_DEPTH_STENCIL_DESC uiDsd{};
+    uiDsd.DepthEnable = FALSE;
+    uiDsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    uiDsd.DepthFunc = D3D11_COMPARISON_ALWAYS;
+    m_dev.device()->CreateDepthStencilState(&uiDsd, m_uiDepthState.ReleaseAndGetAddressOf());
+
+    D3D11_BUFFER_DESC uiVb{};
+    uiVb.ByteWidth = sizeof(DirectX::XMFLOAT4) * 4;
+    uiVb.Usage = D3D11_USAGE_DYNAMIC;
+    uiVb.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    uiVb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    m_dev.device()->CreateBuffer(&uiVb, nullptr, m_uiVB.ReleaseAndGetAddressOf());
 
     return true;
 }
@@ -92,8 +121,13 @@ void Renderer::shutdown()
     m_cbMaterial.Reset();
     m_cbLight.Reset();
     m_cbTransform.Reset();
+    m_cbUi.Reset();
+    m_uiVB.Reset();
+    m_uiDepthState.Reset();
+    m_depthState.Reset();
     m_defaultTexture = Texture{};
     m_shader = ShaderProgram{};
+    m_uiShader = ShaderProgram{};
     m_cube   = Mesh{};
     m_dev.shutdown();
 }
@@ -121,6 +155,58 @@ void Renderer::drawModel(const Model &model, const DirectX::XMMATRIX &modelTrans
 void Renderer::drawCube(const DirectX::XMMATRIX &worldTransform) {
     // Use default texture and cube mesh for a quick demo draw
     drawMesh(m_cube, worldTransform, m_defaultTexture);
+}
+
+void Renderer::drawUiQuad(float x, float y, float width, float height,
+                          ID3D11ShaderResourceView *texture,
+                          const DirectX::XMFLOAT4 &tint) {
+    if (!m_uiShader.vs() || !m_uiVB) return;
+
+    const float left = x * 2.0f - 1.0f;
+    const float right = (x + width) * 2.0f - 1.0f;
+    const float top = 1.0f - y * 2.0f;
+    const float bottom = 1.0f - (y + height) * 2.0f;
+
+    struct UiVertex { DirectX::XMFLOAT2 pos; DirectX::XMFLOAT2 uv; };
+    UiVertex verts[4] = {
+        {{left, bottom}, {0.0f, 1.0f}},
+        {{left, top}, {0.0f, 0.0f}},
+        {{right, bottom}, {1.0f, 1.0f}},
+        {{right, top}, {1.0f, 0.0f}},
+    };
+
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (SUCCEEDED(m_dev.context()->Map(m_uiVB.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        memcpy(mapped.pData, verts, sizeof(verts));
+        m_dev.context()->Unmap(m_uiVB.Get(), 0);
+    }
+
+    UiCB cb{tint};
+    m_dev.context()->UpdateSubresource(m_cbUi.Get(), 0, nullptr, &cb, 0, 0);
+
+    UINT stride = sizeof(UiVertex);
+    UINT offset = 0;
+    m_dev.context()->IASetInputLayout(m_uiShader.inputLayout());
+    m_dev.context()->IASetVertexBuffers(0, 1, m_uiVB.GetAddressOf(), &stride, &offset);
+    m_dev.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+    m_dev.context()->VSSetShader(m_uiShader.vs(), nullptr, 0);
+    m_dev.context()->PSSetShader(m_uiShader.ps(), nullptr, 0);
+    ID3D11Buffer *cbuffers[] = {m_cbUi.Get()};
+    m_dev.context()->VSSetConstantBuffers(0, 1, cbuffers);
+    m_dev.context()->PSSetConstantBuffers(0, 1, cbuffers);
+
+    ID3D11ShaderResourceView *srv = texture ? texture : m_defaultTexture.srv();
+    m_dev.context()->PSSetShaderResources(0, 1, &srv);
+    m_dev.context()->PSSetSamplers(0, 1, m_sampler.GetAddressOf());
+
+    m_dev.context()->OMSetDepthStencilState(m_uiDepthState.Get(), 0);
+
+    m_dev.context()->Draw(4, 0);
+
+    if (m_depthState) {
+        m_dev.context()->OMSetDepthStencilState(m_depthState.Get(), 0);
+    }
 }
 
 void Renderer::draw(const IDrawable &drawable) {

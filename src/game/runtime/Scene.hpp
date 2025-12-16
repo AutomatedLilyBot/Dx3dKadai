@@ -12,6 +12,8 @@
 #include "../src/core/physics/PhysicsWorld.hpp"
 #include "../src/core/physics/Transform.hpp"
 
+class SceneManager;
+
 // 抽象场景基类：
 // - 驱动物理步
 // - 构建 PhysicsQuery 视图
@@ -94,7 +96,7 @@ public:
     }
 
     // 渲染场景
-    void render() {
+    virtual void render() {
         if (!renderer_) return;
         for (auto &ptr: entities_) {
             if (!ptr) continue;
@@ -125,6 +127,9 @@ public:
 
     // 获取实体映射表（用于 InputManager 射线检测）
     const std::unordered_map<EntityId, IEntity*>* getEntityMap() const { return &id2ptr_; }
+
+    void setSceneManager(SceneManager *manager) { manager_ = manager; }
+    SceneManager *sceneManager() const { return manager_; }
 
 protected:
     // 子类可用的工具方法
@@ -315,6 +320,8 @@ protected:
 
     std::vector<CollisionEvent> tempCollisionEvents_;
     std::vector<CollisionEvent> frameCollisionEvents_;
+
+    SceneManager *manager_ = nullptr;
 };
 
 // CommandBuffer::spawnBall 实现（需要在 Scene 定义之后）
