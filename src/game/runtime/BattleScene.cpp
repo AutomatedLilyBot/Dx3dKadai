@@ -283,10 +283,10 @@ void BattleScene::handleInput(float dt, const void* window) {
     bool defeatPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::B);
 
     if (victoryPressed && !victoryWasPressed && manager_) {
-        manager_->transitionTo(std::make_unique<TransitionScene>(std::make_unique<MenuScene>()));
+        manager_->transitionTo(std::make_unique<MenuScene>());
     }
     if (defeatPressed && !defeatWasPressed && manager_) {
-        manager_->transitionTo(std::make_unique<TransitionScene>(std::make_unique<MenuScene>()));
+        manager_->transitionTo(std::make_unique<MenuScene>());
     }
 
     victoryWasPressed = victoryPressed;
