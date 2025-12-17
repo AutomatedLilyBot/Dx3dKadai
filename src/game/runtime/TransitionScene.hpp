@@ -15,6 +15,6 @@ public:
 private:
     std::unique_ptr<Scene> nextScene_;
     float timer_ = 0.0f;
-    float duration_ = 0.5f;
+    float duration_ = 3.0f;
     Texture loadingTexture_;
 };
