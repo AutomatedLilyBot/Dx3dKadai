@@ -1,6 +1,7 @@
 ﻿#pragma once
 #pragma execution_character_set("utf-8")
 
+#include <algorithm>
 #include <vector>
 #include <memory>
 #include <unordered_map>
@@ -23,6 +24,7 @@ class SceneManager;
 class Scene {
 public:
     Scene() = default;
+
     virtual ~Scene() = default;
 
     // 场景初始化（纯虚函数，子类实现具体场景内容）
@@ -63,9 +65,9 @@ public:
         WorldContext ctx{};
         ctx.time = time_;
         ctx.dt = dt;
-        ctx.physics = &query_;       // 物理查询（包含触发器重叠状态）
+        ctx.physics = &query_; // 物理查询（包含触发器重叠状态）
         ctx.entities = &entityQuery; // 实体查询
-        ctx.commands = &cmdBuffer_;  // 命令缓冲（用于生成/销毁实体）
+        ctx.commands = &cmdBuffer_; // 命令缓冲（用于生成/销毁实体）
         ctx.resources = getResourceManager(); // 资源管理器（子类提供）
 
         // 3.1) 派发碰撞/触发事件到实体
@@ -95,14 +97,27 @@ public:
         submitCommands();
     }
 
-    // 渲染场景
+    // 渲染场景（分层渲染：不透明物体 → Billboard）
     virtual void render() {
         if (!renderer_) return;
+
+        // 获取当前相机（从 Renderer 或子类提供）
+        const Camera *camera = getCameraForRendering();
+
+        // 第一遍：渲染不透明物体（写入深度）
         for (auto &ptr: entities_) {
             if (!ptr) continue;
+
+            // 跳过 Billboard 实体，稍后单独处理
+            if (isBillboard(ptr.get())) {
+                continue;
+            }
+
             if (ptr->model()) {
                 renderer_->draw(*ptr);
             }
+
+            // 绘制碰撞体线框（调试用）
             auto span = ptr->colliders();
             std::vector<ColliderBase *> cols(span.begin(), span.end());
             if (!cols.empty()) {
@@ -111,7 +126,86 @@ public:
                 }
             }
         }
+
+        // 第二遍：渲染 Billboard（透明物体，按距离排序）
+        renderBillboards(camera);
+
+        // 第三遍：渲染 Trail（自定义渲染路径）
+        renderTrails(camera);
     }
+
+    // 判断实体是否是Billboard（通过类型检测）
+    virtual bool isBillboard(IEntity *entity) const {
+        // 需要前向声明或包含 BillboardEntity.hpp
+        // 这里使用简单的名称检测作为临时方案
+        return false; // 子类可重写
+    }
+
+    // 获取渲染用的相机（子类重写提供具体相机）
+    virtual const Camera *getCameraForRendering() const {
+        return nullptr; // 默认返回空，BattleScene 等子类会重写
+    }
+
+    // Billboard 专用渲染方法
+    virtual void renderBillboards(const Camera *camera) {
+        if (!camera) return;
+
+        // 收集所有 Billboard 实体（通过虚函数判断）
+        std::vector<IEntity *> billboards;
+        for (auto &ptr: entities_) {
+            if (isBillboard(ptr.get())) {
+                billboards.push_back(ptr.get());
+            }
+        }
+
+        if (billboards.empty()) return;
+
+        // 按距离排序（从远到近，避免透明物体之间的遮挡问题）
+        DirectX::XMFLOAT3 camPos = camera->getPosition();
+        std::sort(billboards.begin(), billboards.end(),
+                  [&camPos](IEntity *a, IEntity *b) {
+                      DirectX::XMFLOAT3 posA = a->transformRef().position;
+                      DirectX::XMFLOAT3 posB = b->transformRef().position;
+
+                      float distASq = (posA.x - camPos.x) * (posA.x - camPos.x) +
+                                      (posA.y - camPos.y) * (posA.y - camPos.y) +
+                                      (posA.z - camPos.z) * (posA.z - camPos.z);
+                      float distBSq = (posB.x - camPos.x) * (posB.x - camPos.x) +
+                                      (posB.y - camPos.y) * (posB.y - camPos.y) +
+                                      (posB.z - camPos.z) * (posB.z - camPos.z);
+
+                      return distASq > distBSq; // 从远到近
+                  });
+
+        // 设置透明渲染状态
+        renderer_->setAlphaBlending(true);
+        renderer_->setDepthWrite(false); // 不写入深度，但保持深度测试
+        renderer_->setBackfaceCulling(false); // 双面渲染
+
+        // 渲染所有 Billboard（需要更新朝向）
+        for (auto *entity: billboards) {
+            updateBillboardOrientation(entity, camera);
+            if (entity->model()) {
+                renderer_->draw(*entity);
+            }
+        }
+
+        // 恢复默认渲染状态
+        renderer_->setAlphaBlending(false);
+        renderer_->setDepthWrite(true);
+        renderer_->setBackfaceCulling(true);
+    }
+
+    // 更新 Billboard 朝向（子类可重写以提供具体实现）
+    virtual void updateBillboardOrientation(IEntity *entity, const Camera *camera) {
+        // 默认实现为空，BattleScene 等子类会重写
+    }
+
+    // Trail 专用渲染方法
+    virtual void renderTrails(const Camera *camera);
+
+    // 判断实体是否是 Trail（通过类型检测）
+    virtual bool isTrail(IEntity *entity) const;
 
     // 访问底层 PhysicsWorld
     PhysicsWorld &physics() { return world_; }
@@ -123,10 +217,11 @@ public:
     virtual ResourceManager *getResourceManager() { return nullptr; }
 
     // 输入处理接口（子类实现具体的交互逻辑）
-    virtual void handleInput(float dt, const void* window) {}
+    virtual void handleInput(float dt, const void *window) {
+    }
 
     // 获取实体映射表（用于 InputManager 射线检测）
-    const std::unordered_map<EntityId, IEntity*>* getEntityMap() const { return &id2ptr_; }
+    const std::unordered_map<EntityId, IEntity *> *getEntityMap() const { return &id2ptr_; }
 
     void setSceneManager(SceneManager *manager) { manager_ = manager; }
     SceneManager *sceneManager() const { return manager_; }
@@ -323,6 +418,42 @@ protected:
 
     SceneManager *manager_ = nullptr;
 };
+
+// Trail 渲染实现（需要前向声明）
+#include "game/entity/TrailEntity.hpp"
+
+inline void Scene::renderTrails(const Camera *camera) {
+    if (!camera || !renderer_) return;
+
+    // 收集所有 Trail 实体
+    std::vector<TrailEntity *> trails;
+    for (auto &ptr: entities_) {
+        if (auto *trail = dynamic_cast<TrailEntity *>(ptr.get())) {
+            trails.push_back(trail);
+        }
+    }
+
+    if (trails.empty()) return;
+
+    // 设置透明渲染状态（与 Billboard 相同）
+    renderer_->setAlphaBlending(true);
+    renderer_->setDepthWrite(false); // 不写入深度，但保持深度测试
+    renderer_->setBackfaceCulling(false); // 双面渲染
+
+    // 渲染所有 Trail
+    for (auto *trail: trails) {
+        trail->render(renderer_, time_);
+    }
+
+    // 恢复默认渲染状态
+    renderer_->setAlphaBlending(false);
+    renderer_->setDepthWrite(true);
+    renderer_->setBackfaceCulling(true);
+}
+
+inline bool Scene::isTrail(IEntity *entity) const {
+    return dynamic_cast<TrailEntity *>(entity) != nullptr;
+}
 
 // CommandBuffer::spawnBall 实现（需要在 Scene 定义之后）
 #include "game/entity/BallEntity.hpp"

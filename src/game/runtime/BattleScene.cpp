@@ -1,6 +1,8 @@
 ﻿#include "BattleScene.hpp"
 #include "MenuScene.hpp"
 #include "TransitionScene.hpp"
+#include "../entity/BillboardEntity.hpp"
+#include "../entity/ExplosionEffect.hpp"
 
 #include <corecrt_startup.h>
 #include <windows.h>
@@ -49,7 +51,7 @@ void BattleScene::createField() {
         for (int z = 0; z < size; ++z) {
             auto block = std::make_unique<BlockEntity>();
             block->setId(allocId());
-            block->transform.position = XMFLOAT3{(float)x - size / 2.0f, -0.5f, (float)z - size / 2.0f};
+            block->transform.position = XMFLOAT3{(float) x - size / 2.0f, -0.5f, (float) z - size / 2.0f};
             block->transform.scale = {1.0f, 1.0f, 1.0f};
             block->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
             block->collider()->updateDerived();
@@ -68,7 +70,7 @@ void BattleScene::createField() {
             {
                 auto wall = std::make_unique<BlockEntity>();
                 wall->setId(allocId());
-                wall->transform.position = XMFLOAT3{(float)i - size / 2.0f, (float)layer + 0.5f, -size / 2.0f};
+                wall->transform.position = XMFLOAT3{(float) i - size / 2.0f, (float) layer + 0.5f, -size / 2.0f};
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
                 wall->responseType = BlockEntity::ResponseType::DestroyBullet;
@@ -82,7 +84,7 @@ void BattleScene::createField() {
             {
                 auto wall = std::make_unique<BlockEntity>();
                 wall->setId(allocId());
-                wall->transform.position = XMFLOAT3{(float)i - size / 2.0f, (float)layer + 0.5f, size / 2.0f - 1.0f};
+                wall->transform.position = XMFLOAT3{(float) i - size / 2.0f, (float) layer + 0.5f, size / 2.0f - 1.0f};
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
                 wall->responseType = BlockEntity::ResponseType::DestroyBullet;
@@ -96,7 +98,7 @@ void BattleScene::createField() {
             {
                 auto wall = std::make_unique<BlockEntity>();
                 wall->setId(allocId());
-                wall->transform.position = XMFLOAT3{-size / 2.0f, (float)layer + 0.5f, (float)i - size / 2.0f};
+                wall->transform.position = XMFLOAT3{-size / 2.0f, (float) layer + 0.5f, (float) i - size / 2.0f};
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
                 wall->responseType = BlockEntity::ResponseType::DestroyBullet;
@@ -110,7 +112,7 @@ void BattleScene::createField() {
             {
                 auto wall = std::make_unique<BlockEntity>();
                 wall->setId(allocId());
-                wall->transform.position = XMFLOAT3{size / 2.0f - 1.0f, (float)layer + 0.5f, (float)i - size / 2.0f};
+                wall->transform.position = XMFLOAT3{size / 2.0f - 1.0f, (float) layer + 0.5f, (float) i - size / 2.0f};
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
                 wall->responseType = BlockEntity::ResponseType::DestroyBullet;
@@ -139,18 +141,18 @@ void BattleScene::createNodes() {
         auto cap = MakeCapsuleCollider(0.5f, 1.0f);
         cap->setDebugEnabled(true);
         cap->setDebugColor(XMFLOAT4(0, 1, 0, 1));
-        node->setCollider(std::move(cap));  // ✅ 使用 setCollider 设置主碰撞体
+        node->setCollider(std::move(cap)); // ✅ 使用 setCollider 设置主碰撞体
 
         // 发射检测触发器（前方区域，只检测不产生物理响应）
         auto obb = MakeObbCollider(XMFLOAT3{0.3f, 0.3f, 0.3f});
         obb->setDebugEnabled(true);
         obb->setDebugColor(XMFLOAT4(0, 1, 1, 1));
-        obb->setPosition(XMFLOAT3(0, 0, 0.8f));  // 相对节点本体前方2.1单位
+        obb->setPosition(XMFLOAT3(0, 0, 0.8f)); // 相对节点本体前方2.1单位
         obb->setIsTrigger(true);
-        node->addCollider(std::move(obb));  // ✅ 使用 addCollider 添加额外碰撞体
+        node->addCollider(std::move(obb)); // ✅ 使用 addCollider 添加额外碰撞体
 
         // 初始化同步
-        for (auto &c : node->colliders()) {
+        for (auto &c: node->colliders()) {
             if (c) c->updateDerived();
         }
 
@@ -173,7 +175,7 @@ void BattleScene::tick(float dt) {
     Scene::tick(dt);
 }
 
-void BattleScene::handleInput(float dt, const void* window) {
+void BattleScene::handleInput(float dt, const void *window) {
     // 更新 InputManager 状态（右键长按/短按检测）
     inputManager_.updateMouseButtons(dt);
 
@@ -184,7 +186,7 @@ void BattleScene::handleInput(float dt, const void* window) {
     // 检测按键从未按下到按下的边缘（只在按下瞬间触发一次）
     if (leftPressed && !leftWasPressed) {
         // 获取鼠标窗口坐标
-        const sf::Window* sfWindow = static_cast<const sf::Window*>(window);
+        const sf::Window *sfWindow = static_cast<const sf::Window *>(window);
         sf::Vector2i mousePos = sf::Mouse::getPosition(*sfWindow);
 
         printf("Mouse clicked at screen position: (%d, %d)\n", mousePos.x, mousePos.y);
@@ -201,7 +203,7 @@ void BattleScene::handleInput(float dt, const void* window) {
 
         if (hitEntity != 0) {
             // 检查是否是 Node
-            NodeEntity* node = getNodeEntity(hitEntity);
+            NodeEntity *node = getNodeEntity(hitEntity);
             if (node && node->team == NodeTeam::Friendly) {
                 // 选中友方 Node（RTS 模式下保持相机不变）
                 selectedNodeId_ = hitEntity;
@@ -213,22 +215,22 @@ void BattleScene::handleInput(float dt, const void* window) {
                 inputManager_.deselectNode();
                 printf("Clicked non-friendly entity, deselecting\n");
             }
-    } else {
-        // 没有击中任何物体，取消选择
-        selectedNodeId_ = 0;
-        inputManager_.deselectNode();
-        printf("Clicked empty space, deselecting\n");
+        } else {
+            // 没有击中任何物体，取消选择
+            selectedNodeId_ = 0;
+            inputManager_.deselectNode();
+            printf("Clicked empty space, deselecting\n");
+        }
     }
-}
 
     leftWasPressed = leftPressed;
 
     // === 右键短按：指定发射方向（仅在选中 Node 时有效）===
     if (inputManager_.isRightClickShort() && selectedNodeId_ != 0) {
-        NodeEntity* selectedNode = getNodeEntity(selectedNodeId_);
+        NodeEntity *selectedNode = getNodeEntity(selectedNodeId_);
         if (selectedNode) {
             // 获取鼠标窗口坐标
-            const sf::Window* sfWindow = static_cast<const sf::Window*>(window);
+            const sf::Window *sfWindow = static_cast<const sf::Window *>(window);
             sf::Vector2i mousePos = sf::Mouse::getPosition(*sfWindow);
             Ray ray = inputManager_.screenPointToRay(mousePos.x, mousePos.y, camera_);
 
@@ -295,10 +297,22 @@ void BattleScene::handleInput(float dt, const void* window) {
     defeatWasPressed = defeatPressed;
 }
 
-NodeEntity* BattleScene::getNodeEntity(EntityId id) {
+NodeEntity *BattleScene::getNodeEntity(EntityId id) {
     auto it = id2ptr_.find(id);
     if (it != id2ptr_.end() && it->second) {
-        return dynamic_cast<NodeEntity*>(it->second);
+        return dynamic_cast<NodeEntity *>(it->second);
     }
     return nullptr;
+}
+
+// 判断实体是否是 Billboard
+bool BattleScene::isBillboard(IEntity *entity) const {
+    return dynamic_cast<BillboardEntity *>(entity) != nullptr;
+}
+
+// 更新 Billboard 朝向
+void BattleScene::updateBillboardOrientation(IEntity *entity, const Camera *camera) {
+    if (auto *billboard = dynamic_cast<BillboardEntity *>(entity)) {
+        billboard->updateBillboardOrientation(camera);
+    }
 }

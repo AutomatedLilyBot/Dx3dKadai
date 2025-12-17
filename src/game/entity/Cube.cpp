@@ -16,8 +16,7 @@ static std::wstring ExeDirCube() {
     return (p == std::wstring::npos) ? L"." : s.substr(0, p);
 }
 
-bool Cube::initialize(ID3D11Device* device)
-{
+bool Cube::initialize(ID3D11Device *device) {
     // Create a fixed cube mesh
     if (!m_mesh.createCube(device, 1.0f)) {
         return false;
@@ -45,8 +44,7 @@ void Cube::setRotation(float pitch, float yaw, float roll) { m_rotation = XMFLOA
 void Cube::setScale(float x, float y, float z) { m_scale = XMFLOAT3(x, y, z); }
 void Cube::setScale(float uniformScale) { m_scale = XMFLOAT3(uniformScale, uniformScale, uniformScale); }
 
-DirectX::XMMATRIX Cube::getTransform() const
-{
+DirectX::XMMATRIX Cube::getTransform() const {
     XMMATRIX S = XMMatrixScaling(m_scale.x, m_scale.y, m_scale.z);
     XMMATRIX R = XMMatrixRotationRollPitchYaw(m_rotation.x, m_rotation.y, m_rotation.z);
     XMMATRIX T = XMMatrixTranslation(m_position.x, m_position.y, m_position.z);

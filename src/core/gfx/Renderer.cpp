@@ -10,34 +10,34 @@
 using namespace DirectX;
 
 static const D3D11_INPUT_ELEMENT_DESC kLayout[] = {
-    { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,                            D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
 };
 
 static const D3D11_INPUT_ELEMENT_DESC kUiLayout[] = {
-    { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
 };
 
 static std::wstring ExeDir() {
-    wchar_t buf[MAX_PATH]; GetModuleFileNameW(nullptr, buf, MAX_PATH);
-    std::wstring s(buf); auto p = s.find_last_of(L"\\/");
-    return (p==std::wstring::npos) ? L"." : s.substr(0,p);
+    wchar_t buf[MAX_PATH];
+    GetModuleFileNameW(nullptr, buf, MAX_PATH);
+    std::wstring s(buf);
+    auto p = s.find_last_of(L"\\/");
+    return (p == std::wstring::npos) ? L"." : s.substr(0, p);
 }
 
-static bool CreateCB(ID3D11Device* dev, size_t bytes, ID3D11Buffer** out)
-{
+static bool CreateCB(ID3D11Device *dev, size_t bytes, ID3D11Buffer **out) {
     D3D11_BUFFER_DESC bd{};
-    bd.ByteWidth = (UINT)((bytes + 15) & ~15);
+    bd.ByteWidth = (UINT) ((bytes + 15) & ~15);
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     return SUCCEEDED(dev->CreateBuffer(&bd, nullptr, out));
 }
 
-bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
-{
+bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug) {
     if (!m_dev.initialize(hwnd, w, h, debug)) return false;
 
     std::wstring hlsl = ExeDir() + L"\\shader\\simple.hlsl";
@@ -83,8 +83,8 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
     // Set rasterizer state
     Microsoft::WRL::ComPtr<ID3D11RasterizerState> rs;
     D3D11_RASTERIZER_DESC rd{};
-    rd.FillMode=D3D11_FILL_SOLID;
-    rd.CullMode=D3D11_CULL_BACK;
+    rd.FillMode = D3D11_FILL_SOLID;
+    rd.CullMode = D3D11_CULL_BACK;
     rd.FrontCounterClockwise = FALSE; // Counter-clockwise vertices are front-facing
     //rd.DepthClipEnable=TRUE;
     m_dev.device()->CreateRasterizerState(&rd, rs.GetAddressOf());
@@ -92,9 +92,10 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
 
     // Set depth stencil state
     Microsoft::WRL::ComPtr<ID3D11DepthStencilState> dss;
-    D3D11_DEPTH_STENCIL_DESC dsd{}; dsd.DepthEnable=TRUE;
-    dsd.DepthWriteMask=D3D11_DEPTH_WRITE_MASK_ALL;
-    dsd.DepthFunc=D3D11_COMPARISON_LESS;
+    D3D11_DEPTH_STENCIL_DESC dsd{};
+    dsd.DepthEnable = TRUE;
+    dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    dsd.DepthFunc = D3D11_COMPARISON_LESS;
     m_dev.device()->CreateDepthStencilState(&dsd, dss.GetAddressOf());
     m_depthState = dss;
     m_dev.context()->OMSetDepthStencilState(dss.Get(), 0);
@@ -104,6 +105,32 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
     uiDsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
     uiDsd.DepthFunc = D3D11_COMPARISON_ALWAYS;
     m_dev.device()->CreateDepthStencilState(&uiDsd, m_uiDepthState.ReleaseAndGetAddressOf());
+
+    // Create depth-no-write state (for transparent objects: test but don't write)
+    D3D11_DEPTH_STENCIL_DESC depthNoWriteDsd{};
+    depthNoWriteDsd.DepthEnable = TRUE;
+    depthNoWriteDsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; // 不写入深度
+    depthNoWriteDsd.DepthFunc = D3D11_COMPARISON_LESS; // 但仍然测试深度
+    m_dev.device()->CreateDepthStencilState(&depthNoWriteDsd, m_depthNoWriteState.ReleaseAndGetAddressOf());
+
+    // Create alpha blend state (for transparent objects)
+    D3D11_BLEND_DESC blendDesc{};
+    blendDesc.RenderTarget[0].BlendEnable = TRUE;
+    blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+    blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    m_dev.device()->CreateBlendState(&blendDesc, m_alphaBlendState.ReleaseAndGetAddressOf());
+
+    // Create no-cull rasterizer state (for billboards: render both sides)
+    D3D11_RASTERIZER_DESC noCullRd{};
+    noCullRd.FillMode = D3D11_FILL_SOLID;
+    noCullRd.CullMode = D3D11_CULL_NONE; // 双面渲染
+    noCullRd.FrontCounterClockwise = FALSE;
+    m_dev.device()->CreateRasterizerState(&noCullRd, m_noCullRasterizerState.ReleaseAndGetAddressOf());
 
     D3D11_BUFFER_DESC uiVb{};
     uiVb.ByteWidth = sizeof(DirectX::XMFLOAT4) * 4;
@@ -115,8 +142,7 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug)
     return true;
 }
 
-void Renderer::shutdown()
-{
+void Renderer::shutdown() {
     m_sampler.Reset();
     m_cbMaterial.Reset();
     m_cbLight.Reset();
@@ -125,17 +151,21 @@ void Renderer::shutdown()
     m_uiVB.Reset();
     m_uiDepthState.Reset();
     m_depthState.Reset();
+    m_depthNoWriteState.Reset();
+    m_alphaBlendState.Reset();
+    m_noCullRasterizerState.Reset();
     m_defaultTexture = Texture{};
     m_shader = ShaderProgram{};
     m_uiShader = ShaderProgram{};
-    m_cube   = Mesh{};
+    m_cube = Mesh{};
     m_dev.shutdown();
 }
 
-void Renderer::beginFrame(float r,float g,float b,float a) { m_dev.clear(r,g,b,a); }
+void Renderer::beginFrame(float r, float g, float b, float a) { m_dev.clear(r, g, b, a); }
 void Renderer::endFrame() { m_dev.present(); }
 
-void Renderer::drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform, const DirectX::XMFLOAT4 *baseColorFactor) {
+void Renderer::drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform,
+                         const DirectX::XMFLOAT4 *baseColorFactor) {
     // Iterate through draw items and render each sub-mesh with its material
     for (const auto &di: model.drawItems) {
         if (di.meshIndex >= model.meshes.size()) continue;
@@ -167,7 +197,10 @@ void Renderer::drawUiQuad(float x, float y, float width, float height,
     const float top = 1.0f - y * 2.0f;
     const float bottom = 1.0f - (y + height) * 2.0f;
 
-    struct UiVertex { DirectX::XMFLOAT2 pos; DirectX::XMFLOAT2 uv; };
+    struct UiVertex {
+        DirectX::XMFLOAT2 pos;
+        DirectX::XMFLOAT2 uv;
+    };
     UiVertex verts[4] = {
         {{left, bottom}, {0.0f, 1.0f}},
         {{left, top}, {0.0f, 0.0f}},
@@ -202,8 +235,16 @@ void Renderer::drawUiQuad(float x, float y, float width, float height,
 
     m_dev.context()->OMSetDepthStencilState(m_uiDepthState.Get(), 0);
 
+    // Enable alpha blending for UI transparency
+    if (m_alphaBlendState) {
+        float blendFactor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        m_dev.context()->OMSetBlendState(m_alphaBlendState.Get(), blendFactor, 0xFFFFFFFF);
+    }
+
     m_dev.context()->Draw(4, 0);
 
+    // Restore blend state and depth state
+    m_dev.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
     if (m_depthState) {
         m_dev.context()->OMSetDepthStencilState(m_depthState.Get(), 0);
     }
@@ -376,7 +417,7 @@ void Renderer::drawColliderWire(const ColliderBase &col) {
 
     // Set transform for lines (world = identity; vertices already in world space)
     XMMATRIX I = XMMatrixIdentity();
-    const Camera& cam = getActiveCamera();
+    const Camera &cam = getActiveCamera();
     XMMATRIX V = cam.getViewMatrix();
     float aspect = (float) m_dev.width() / (float) m_dev.height();
     XMMATRIX P = cam.getProjectionMatrix(aspect);
@@ -503,7 +544,7 @@ void Renderer::drawContactGizmo(const OverlapResult &contact, const XMFLOAT4 &co
 
     // Set transform for lines (world = identity)
     XMMATRIX I = XMMatrixIdentity();
-    const Camera& cam = getActiveCamera();
+    const Camera &cam = getActiveCamera();
     XMMATRIX V = cam.getViewMatrix();
     float aspect = (float) m_dev.width() / (float) m_dev.height();
     XMMATRIX P = cam.getProjectionMatrix(aspect);
@@ -560,14 +601,14 @@ void Renderer::drawContactsGizmo(const std::vector<OverlapResult> &contacts,
     for (const auto &c: contacts) drawContactGizmo(c, color, scale);
 }
 
-void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, const Texture& texture, const DirectX::XMFLOAT4 *baseColorFactor)
-{
+void Renderer::drawMesh(const Mesh &mesh, const DirectX::XMMATRIX &transform, const Texture &texture,
+                        const DirectX::XMFLOAT4 *baseColorFactor) {
     using namespace DirectX;
 
     // Get view matrix from camera and calculate projection
-    const Camera& cam = getActiveCamera();
+    const Camera &cam = getActiveCamera();
     XMMATRIX V = cam.getViewMatrix();
-    float aspect = (float)m_dev.width() / (float)m_dev.height();
+    float aspect = (float) m_dev.width() / (float) m_dev.height();
     XMMATRIX P = cam.getProjectionMatrix(aspect);
 
     // Update transform constant buffer
@@ -593,12 +634,12 @@ void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, co
     m_shader.bind(m_dev.context());
 
     // Bind constant buffers
-    ID3D11Buffer* cbs[] = { m_cbTransform.Get(), m_cbLight.Get(), m_cbMaterial.Get() };
+    ID3D11Buffer *cbs[] = {m_cbTransform.Get(), m_cbLight.Get(), m_cbMaterial.Get()};
     m_dev.context()->VSSetConstantBuffers(0, 3, cbs);
     m_dev.context()->PSSetConstantBuffers(0, 3, cbs);
 
     // Bind texture and sampler (prefer provided texture, fallback to default)
-    ID3D11ShaderResourceView* srv = texture.isValid() ? texture.srv() : m_defaultTexture.srv();
+    ID3D11ShaderResourceView *srv = texture.isValid() ? texture.srv() : m_defaultTexture.srv();
     static int drawCount = 0;
     /*if (drawCount < 10) {
         // Print first 10 draws
@@ -606,26 +647,187 @@ void Renderer::drawMesh(const Mesh& mesh, const DirectX::XMMATRIX& transform, co
                drawCount++, texture.isValid(), texture.srv(), m_defaultTexture.srv());
     }*/
     m_dev.context()->PSSetShaderResources(0, 1, &srv);
-    ID3D11SamplerState* samp = m_sampler.Get();
+    ID3D11SamplerState *samp = m_sampler.Get();
     m_dev.context()->PSSetSamplers(0, 1, &samp);
 
     // Set render targets and viewport
-    ID3D11RenderTargetView* rtv = m_dev.rtv();
-    ID3D11DepthStencilView* dsv = m_dev.dsv();
+    ID3D11RenderTargetView *rtv = m_dev.rtv();
+    ID3D11DepthStencilView *dsv = m_dev.dsv();
     m_dev.context()->OMSetRenderTargets(1, &rtv, dsv);
 
-    D3D11_VIEWPORT vp{0,0,(FLOAT)m_dev.width(),(FLOAT)m_dev.height(),0,1};
+    D3D11_VIEWPORT vp{0, 0, (FLOAT) m_dev.width(), (FLOAT) m_dev.height(), 0, 1};
     m_dev.context()->RSSetViewports(1, &vp);
 
     // Draw mesh using its data
     UINT stride = mesh.stride();
     UINT offset = 0;
-    ID3D11Buffer* vb = mesh.vertexBuffer();
+    ID3D11Buffer *vb = mesh.vertexBuffer();
     m_dev.context()->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
     m_dev.context()->IASetIndexBuffer(mesh.indexBuffer(), DXGI_FORMAT_R16_UINT, 0);
     m_dev.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_dev.context()->DrawIndexed(mesh.indexCount(), 0, 0);
 
-    ID3D11ShaderResourceView* nullSRV[1] = { nullptr };
+    ID3D11ShaderResourceView *nullSRV[1] = {nullptr};
+    m_dev.context()->PSSetShaderResources(0, 1, nullSRV);
+}
+
+// ==== Render State Management for Transparent Objects ====
+
+void Renderer::setAlphaBlending(bool enable) {
+    if (enable && m_alphaBlendState) {
+        float blendFactor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        m_dev.context()->OMSetBlendState(m_alphaBlendState.Get(), blendFactor, 0xFFFFFFFF);
+    } else {
+        // Disable blending
+        m_dev.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+    }
+}
+
+void Renderer::setDepthWrite(bool enable) {
+    if (enable) {
+        // Enable depth write (normal opaque rendering)
+        if (m_depthState) {
+            m_dev.context()->OMSetDepthStencilState(m_depthState.Get(), 0);
+        }
+    } else {
+        // Disable depth write but keep depth test (for transparent objects)
+        if (m_depthNoWriteState) {
+            m_dev.context()->OMSetDepthStencilState(m_depthNoWriteState.Get(), 0);
+        }
+    }
+}
+
+void Renderer::setBackfaceCulling(bool enable) {
+    if (enable) {
+        // Default back-face culling (created in initialize)
+        Microsoft::WRL::ComPtr<ID3D11RasterizerState> rs;
+        D3D11_RASTERIZER_DESC rd{};
+        rd.FillMode = D3D11_FILL_SOLID;
+        rd.CullMode = D3D11_CULL_BACK;
+        rd.FrontCounterClockwise = FALSE;
+        m_dev.device()->CreateRasterizerState(&rd, rs.GetAddressOf());
+        m_dev.context()->RSSetState(rs.Get());
+    } else {
+        // No culling (double-sided rendering for billboards)
+        if (m_noCullRasterizerState) {
+            m_dev.context()->RSSetState(m_noCullRasterizerState.Get());
+        }
+    }
+}
+
+// ==== Ribbon/Trail Rendering ====
+
+void Renderer::drawRibbon(const std::vector<RibbonVertex> &vertices,
+                          const std::vector<uint16_t> &indices,
+                          ID3D11ShaderResourceView *texture,
+                          const DirectX::XMFLOAT4 &baseColor) {
+    if (vertices.empty() || indices.empty()) return;
+
+    UINT vbBytes = static_cast<UINT>(vertices.size() * sizeof(RibbonVertex));
+    UINT ibBytes = static_cast<UINT>(indices.size() * sizeof(uint16_t));
+
+    // Recreate or resize vertex buffer if needed
+    if (!m_ribbonVB || m_ribbonVBCapacity < vbBytes) {
+        m_ribbonVB.Reset();
+        m_ribbonVBCapacity = vbBytes * 2; // Reserve extra space to reduce reallocations
+        D3D11_BUFFER_DESC vbDesc{};
+        vbDesc.ByteWidth = m_ribbonVBCapacity;
+        vbDesc.Usage = D3D11_USAGE_DYNAMIC;
+        vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        vbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        if (FAILED(m_dev.device()->CreateBuffer(&vbDesc, nullptr, m_ribbonVB.ReleaseAndGetAddressOf()))) {
+            return;
+        }
+    }
+
+    // Recreate or resize index buffer if needed
+    if (!m_ribbonIB || m_ribbonIBCapacity < ibBytes) {
+        m_ribbonIB.Reset();
+        m_ribbonIBCapacity = ibBytes * 2; // Reserve extra space
+        D3D11_BUFFER_DESC ibDesc{};
+        ibDesc.ByteWidth = m_ribbonIBCapacity;
+        ibDesc.Usage = D3D11_USAGE_DYNAMIC;
+        ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        ibDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        if (FAILED(m_dev.device()->CreateBuffer(&ibDesc, nullptr, m_ribbonIB.ReleaseAndGetAddressOf()))) {
+            return;
+        }
+    }
+
+    // Upload vertex data
+    D3D11_MAPPED_SUBRESOURCE mappedVB{};
+    if (SUCCEEDED(m_dev.context()->Map(m_ribbonVB.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedVB))) {
+        memcpy(mappedVB.pData, vertices.data(), vbBytes);
+        m_dev.context()->Unmap(m_ribbonVB.Get(), 0);
+    } else {
+        return;
+    }
+
+    // Upload index data
+    D3D11_MAPPED_SUBRESOURCE mappedIB{};
+    if (SUCCEEDED(m_dev.context()->Map(m_ribbonIB.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedIB))) {
+        memcpy(mappedIB.pData, indices.data(), ibBytes);
+        m_dev.context()->Unmap(m_ribbonIB.Get(), 0);
+    } else {
+        return;
+    }
+
+    // Set transform (identity world, ribbon vertices are already in world space)
+    XMMATRIX I = XMMatrixIdentity();
+    const Camera &cam = getActiveCamera();
+    XMMATRIX V = cam.getViewMatrix();
+    float aspect = static_cast<float>(m_dev.width()) / static_cast<float>(m_dev.height());
+    XMMATRIX P = cam.getProjectionMatrix(aspect);
+
+    TransformCB cbTransform{};
+    XMStoreFloat4x4(&cbTransform.World, I);
+    XMStoreFloat4x4(&cbTransform.WVP, I * V * P);
+    m_dev.context()->UpdateSubresource(m_cbTransform.Get(), 0, nullptr, &cbTransform, 0, 0);
+
+    // Set light
+    LightCB cbLight{};
+    cbLight.lightDir = m_lightDir;
+    cbLight.lightColor = m_lightColor;
+    cbLight.ambientColor = m_ambientColor;
+    m_dev.context()->UpdateSubresource(m_cbLight.Get(), 0, nullptr, &cbLight, 0, 0);
+
+    // Set material
+    MaterialCB cbMaterial{};
+    cbMaterial.baseColorFactor = baseColor;
+    m_dev.context()->UpdateSubresource(m_cbMaterial.Get(), 0, nullptr, &cbMaterial, 0, 0);
+
+    // Bind shader
+    m_shader.bind(m_dev.context());
+
+    // Bind constant buffers
+    ID3D11Buffer *cbs[] = {m_cbTransform.Get(), m_cbLight.Get(), m_cbMaterial.Get()};
+    m_dev.context()->VSSetConstantBuffers(0, 3, cbs);
+    m_dev.context()->PSSetConstantBuffers(0, 3, cbs);
+
+    // Bind texture (use provided texture or default white)
+    ID3D11ShaderResourceView *srv = texture ? texture : m_defaultTexture.srv();
+    m_dev.context()->PSSetShaderResources(0, 1, &srv);
+    ID3D11SamplerState *samp = m_sampler.Get();
+    m_dev.context()->PSSetSamplers(0, 1, &samp);
+
+    // Set render targets and viewport
+    ID3D11RenderTargetView *rtv = m_dev.rtv();
+    ID3D11DepthStencilView *dsv = m_dev.dsv();
+    m_dev.context()->OMSetRenderTargets(1, &rtv, dsv);
+    D3D11_VIEWPORT vp{0, 0, static_cast<FLOAT>(m_dev.width()), static_cast<FLOAT>(m_dev.height()), 0, 1};
+    m_dev.context()->RSSetViewports(1, &vp);
+
+    // Bind vertex/index buffers
+    UINT stride = sizeof(RibbonVertex);
+    UINT offset = 0;
+    m_dev.context()->IASetVertexBuffers(0, 1, m_ribbonVB.GetAddressOf(), &stride, &offset);
+    m_dev.context()->IASetIndexBuffer(m_ribbonIB.Get(), DXGI_FORMAT_R16_UINT, 0);
+    m_dev.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Draw
+    m_dev.context()->DrawIndexed(static_cast<UINT>(indices.size()), 0, 0);
+
+    // Cleanup
+    ID3D11ShaderResourceView *nullSRV[1] = {nullptr};
     m_dev.context()->PSSetShaderResources(0, 1, nullSRV);
 }

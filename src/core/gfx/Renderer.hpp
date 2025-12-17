@@ -22,10 +22,12 @@ public:
     void endFrame();
 
     // Draw mesh with transform matrix and texture
-    void drawMesh(const Mesh &mesh, const DirectX::XMMATRIX &transform, const Texture &texture, const DirectX::XMFLOAT4 *baseColorFactor = nullptr);
+    void drawMesh(const Mesh &mesh, const DirectX::XMMATRIX &transform, const Texture &texture,
+                  const DirectX::XMFLOAT4 *baseColorFactor = nullptr);
 
     // Draw a full model: iterate draw items, combine model transform with node transforms
-    void drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform, const DirectX::XMFLOAT4 *baseColorFactor = nullptr);
+    void drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform,
+                   const DirectX::XMFLOAT4 *baseColorFactor = nullptr);
 
     // Draw via drawable interface (adapter)
     void draw(const IDrawable &drawable);
@@ -53,15 +55,17 @@ public:
     // 旧接口保留用于兼容性，但应该使用 setCamera()
     [[deprecated("Use setCamera() and pass Camera from Scene")]]
     Camera &getCamera() { return m_camera; }
+
     [[deprecated("Use setCamera() and pass Camera from Scene")]]
     const Camera &getCamera() const { return m_camera; }
 
     // 设置当前帧使用的 Camera（由 Scene 提供）
-    void setCamera(const Camera* camera) { m_externalCamera = camera; }
+    void setCamera(const Camera *camera) { m_externalCamera = camera; }
 
     void drawUiQuad(float x, float y, float width, float height,
                     ID3D11ShaderResourceView *texture,
                     const DirectX::XMFLOAT4 &tint);
+
     const Texture &defaultTexture() const { return m_defaultTexture; }
 
     // Temporary accessor for cube mesh (for demo purposes)
@@ -74,9 +78,29 @@ public:
     // Device accessor for resource initialization
     ID3D11Device *device() const { return m_dev.device(); }
 
+    // Render state management for transparent objects (Billboard)
+    void setAlphaBlending(bool enable);
+
+    void setDepthWrite(bool enable);
+
+    void setBackfaceCulling(bool enable);
+
+    // Ribbon/Trail rendering (dynamic mesh with optional texture)
+    struct RibbonVertex {
+        DirectX::XMFLOAT3 position;
+        DirectX::XMFLOAT3 normal;
+        DirectX::XMFLOAT4 color;
+        DirectX::XMFLOAT2 texCoord;
+    };
+
+    void drawRibbon(const std::vector<RibbonVertex> &vertices,
+                    const std::vector<uint16_t> &indices,
+                    ID3D11ShaderResourceView *texture,
+                    const DirectX::XMFLOAT4 &baseColor);
+
 private:
     // 获取当前活跃的 Camera（优先外部，回退到内部）
-    const Camera& getActiveCamera() const {
+    const Camera &getActiveCamera() const {
         return m_externalCamera ? *m_externalCamera : m_camera;
     }
 
@@ -108,7 +132,7 @@ private:
     Mesh m_cube;
     Texture m_defaultTexture;
     Camera m_camera; // 保留作为后备，用于兼容旧代码
-    const Camera* m_externalCamera = nullptr; // 外部 Camera（优先使用）
+    const Camera *m_externalCamera = nullptr; // 外部 Camera（优先使用）
 
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbTransform;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbLight;
@@ -118,9 +142,18 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_uiVB;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_uiDepthState;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_depthState;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_depthNoWriteState; // 深度测试但不写入（用于透明物体）
+    Microsoft::WRL::ComPtr<ID3D11BlendState> m_alphaBlendState; // Alpha混合状态
+    Microsoft::WRL::ComPtr<ID3D11RasterizerState> m_noCullRasterizerState; // 双面渲染状态
 
     // Dynamic vertex buffer for debug lines
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_debugVB;
+
+    // Dynamic vertex/index buffers for ribbon rendering
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_ribbonVB;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_ribbonIB;
+    UINT m_ribbonVBCapacity = 0;
+    UINT m_ribbonIBCapacity = 0;
 
     DirectX::XMFLOAT3 m_lightDir{0.577f, -0.577f, 0.577f}; // Normalized diagonal
     DirectX::XMFLOAT3 m_lightColor{1.0f, 1.0f, 1.0f};
