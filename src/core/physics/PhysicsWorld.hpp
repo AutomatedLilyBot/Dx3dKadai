@@ -18,10 +18,28 @@ using EntityId = uint32_t;
 
 // 物理世界参数（运行期可调）
 struct WorldParams {
-    DirectX::XMFLOAT3 gravity{0, -9.8f, 0};
+    DirectX::XMFLOAT3 gravity{0, -9.81f, 0};
     float maxSpeed = 100.0f; // 可选速度上限
-    int substeps = 3; // 子步数量（>1 可减少穿透）
+
+
+    // 碰撞法线速度阈值 (vDotN < threshold)
+    // 用于判定物体是否正在“撞向”彼此。值越接近0，越能捕捉到极低速的擦边碰撞。
+    float collisionVelocityThreshold = -0.001f;
+
+    // 穿透回退容差 (Penetration Tolerance)
+    // 允许的微小重叠量，防止由于浮点误差导致的物体在地面上高频“抖动”或不断触发回弹事件。
+    float penetrationSlop = 0.005f;
+
+    // 速度恢复系数 (Restitution) 的默认全局加权
+    // 用于在没有指定材质时控制反弹力度
+    float defaultRestitution = 0.8f;
+
+    // 摩擦力系数
+    float frictionCoefficient = 0.3f;
+
+    //废弃
     SolverParams solver; // 解算器参数（iterations/slop/beta）
+    int substeps = 1;  //子步数量（>1 可减少穿透）
 };
 
 // 触发器事件类型

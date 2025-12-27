@@ -22,9 +22,9 @@ void BulletEntity::initialize(float radius, const std::wstring &modelPath, Resou
     rb.invMass = 1.0f;
 
     // 高尔夫球物理参数：低摩擦，高弹性
-    rb.muS = 0.05f; // 静摩擦：0.6 → 0.05（更容易滚动）
-    rb.muK = 0.03f; // 动摩擦：0.5 → 0.03（滚动时阻力小）
-    rb.restitution = 0.7f; // 弹性系数：0.2 → 0.7（更有弹性）
+    rb.muS = 0.02f; // 静摩擦：0.6 → 0.05（更容易滚动）
+    rb.muK = 0.01f; // 动摩擦：0.5 → 0.03（滚动时阻力小）
+    rb.restitution = 0.8f; // 弹性系数：0.2 → 0.7（更有弹性）
 
     // 使用 ResourceManager 获取共享模型（自动缓存，无需 modelOwned）
     if (resMgr) {
@@ -141,7 +141,7 @@ void BulletEntity::spawnExplosionEffect(WorldContext &ctx, const DirectX::XMFLOA
 }
 
 void BulletEntity::onCollision(WorldContext &ctx, EntityId other, TriggerPhase phase, const OverlapResult &c) {
-    if (phase != TriggerPhase::Enter) return;
+    if (phase == TriggerPhase::Exit) return;
     auto *otherEntity = ctx.entities->getEntity(other);
     if (!otherEntity) return;
 

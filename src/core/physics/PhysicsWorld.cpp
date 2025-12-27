@@ -26,9 +26,9 @@ void PhysicsWorld::registerEntity(EntityId e, RigidBody *rb, std::span<ColliderB
             bs.p = rb->position;
             bs.v = rb->velocity;
             bs.invMass = rb->invMass;
-            bs.restitution = rb->restitution;
-            bs.muS = rb->muS;
-            bs.muK = rb->muK;
+            bs.restitution = rb->restitution>0?rb->restitution:params().defaultRestitution;
+            bs.muS = rb->muS>0?rb->muS:params().frictionCoefficient;
+            bs.muK = rb->muK>0?rb->muK:params().frictionCoefficient;
             bodies_.push_back(bs);
             bodyRefs_.push_back(rb);
             collidersByBody_.emplace_back();
@@ -140,19 +140,33 @@ uint64_t PhysicsWorld::PairKey(EntityId a, EntityId b) {
 
 void PhysicsWorld::step(float dt) {
     if (dt <= 0) return;
-    int sub = std::max(1, params_.substeps);
-    float h = dt / static_cast<float>(sub);
+    // int sub = std::max(1, params_.substeps);
+    // float h = dt / static_cast<float>(sub);
 
-    for (int s = 0; s < sub; ++s) {
-        integrate(h);
-        // 将积分后的 BodyState 位置同步到 Collider，确保 AABB 反映本子步位置
-        syncBodiesToColliders();
-        broadPhase();
-        narrowPhase();
-        solveContacts();
-        positionalCorrection();
-    }
+
+    // for (int s = 0; s < sub; ++s) {
+    //     integrate(h);
+    //     // 将积分后的 BodyState 位置同步到 Collider，确保 AABB 反映本子步位置
+    //     syncBodiesToColliders();
+    //     broadPhase();
+    //     narrowPhase();
+    //     solveContacts();
+    //     positionalCorrection();
+    // }
+    // syncBackAndDispatch(dt);
+
+    // 移除substep,在非CCD下无必要,并且只有最后一步的currTriggers_会被派发
+    // 这导致了只有运动响应但是没有事件的问题
+
+    integrate(dt);
+    syncBodiesToColliders();
+    broadPhase();
+    narrowPhase();
+    solveContacts();
+    positionalCorrection();
     syncBackAndDispatch(dt);
+
+
 }
 
 void PhysicsWorld::syncOwnerTransform(EntityId e,
@@ -326,21 +340,18 @@ void PhysicsWorld::narrowPhase() {
 
         bool triggerPair = (ca->isTrigger() || cb->isTrigger());
 
-        // 无论是否为 trigger，都应产生事件回调（Enter/Stay/Exit）
-        // 仅当非 trigger 对时，才进入解算器进行物理解算。
-        {
+        // Trigger 对：立即添加到事件集合
+        if (triggerPair) {
             EntityId ea = col2entity_[ca];
             EntityId eb = col2entity_[cb];
             uint64_t key = PairKey(ea, eb);
             currTriggers_.insert(key);
-            // 存储本帧的接触信息，供回调/调试绘制使用
             triggerContactMap_[key] = out;
-        }
-        if (triggerPair) {
-            // trigger 对不进入解算
-            continue;
+            continue; // trigger 对不进入物理解算
         }
 
+        // 非 trigger 对：先添加到 contacts_ 进行物理解算
+        // 稍后在 solveContacts() 中，只有真正产生碰撞响应的才会添加到 currTriggers_
         int ia = col2bodyIdx_[ca];
         int ib = col2bodyIdx_[cb];
         ContactItem item{};
@@ -381,13 +392,18 @@ void PhysicsWorld::solveContacts() {
 
         if (!aIsDynamic && !bIsDynamic) continue; // 两个都是静态体
 
+        // 标记是否发生了真实碰撞响应
+        bool collisionOccurred = false;
+
         // 处理 A（如果是动态体）
         if (aIsDynamic) {
             // 检查 A 是否正在向 B 移动（速度朝向 B）
             float vDotN = dot3(bodyA.v, normal);
-            const float threshold = -0.01f; // 小的负值阈值，避免静止时反复触发
-            if (vDotN < threshold) {
+            // 小的负值阈值，避免静止时反复触发
+            if (vDotN < params().collisionVelocityThreshold) {
                 // A 正在明显向 B 移动
+                collisionOccurred = true;
+
                 // 1. 位置回退到上一帧
                 bodyA.p = bodyA.pPrev;
 
@@ -409,9 +425,10 @@ void PhysicsWorld::solveContacts() {
             // B 的法线方向相反（从 B 指向 A）
             XMFLOAT3 normalB = mul3(normal, -1.0f);
             float vDotN = dot3(bodyB.v, normalB);
-            const float threshold = -0.01f;
-            if (vDotN < threshold) {
+            if (vDotN < params().collisionVelocityThreshold) {
                 // B 正在明显向 A 移动
+                collisionOccurred = true;
+
                 // 1. 位置回退
                 bodyB.p = bodyB.pPrev;
 
@@ -425,6 +442,15 @@ void PhysicsWorld::solveContacts() {
                 XMFLOAT3 vNormal = mul3(normalB, vDotN);
                 bodyB.v = sub3(bodyB.v, vNormal);
             }
+        }
+
+        // 只有真正发生碰撞响应时，才添加到事件系统
+        if (collisionOccurred) {
+            EntityId ea = col2entity_[contact.ca];
+            EntityId eb = col2entity_[contact.cb];
+            uint64_t key = PairKey(ea, eb);
+            currTriggers_.insert(key);
+            triggerContactMap_[key] = contact.c;
         }
     }
 }

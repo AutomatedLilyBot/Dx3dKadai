@@ -15,9 +15,9 @@ struct RigidBody {
     float invMass = 1.0f;
 
     // 材质参数
-    float restitution = 0.2f; // 恢复系数 e ∈ [0,1]
-    float muS = 0.6f; // 静摩擦（预留，首版未区分）
-    float muK = 0.5f; // 动摩擦
+    float restitution = -1; // 恢复系数 e ∈ [0,1]
+    float muS = -1; // 静摩擦（预留，首版未区分）
+    float muK = -1; // 动摩擦
 
     // 注册索引：由 PhysicsWorld 赋值（-1 表示未注册）
     int bodyIdx = -1;

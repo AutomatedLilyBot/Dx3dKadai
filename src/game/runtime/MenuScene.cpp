@@ -1,10 +1,15 @@
 #include "MenuScene.hpp"
+
+#include <string>
+
 #include "SceneManager.hpp"
 #include "TransitionScene.hpp"
 #include "BattleScene.hpp"
 
 #include <SFML/Window/Keyboard.hpp>
 #include <windows.h>
+
+#include "core/gfx/Renderer.hpp"
 
 static std::wstring ExeDirMenu() {
     wchar_t buf[MAX_PATH];

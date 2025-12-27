@@ -55,7 +55,7 @@ void BattleScene::createField() {
             block->transform.scale = {1.0f, 1.0f, 1.0f};
             block->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
             block->collider()->updateDerived();
-            block->responseType = BlockEntity::ResponseType::BounceBullet;
+            block->responseType = BlockEntity::ResponseType::None;
             if (cube) block->modelRef = cube;
             registerEntity(*block);
             id2ptr_[block->id()] = block.get();
