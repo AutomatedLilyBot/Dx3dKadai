@@ -17,7 +17,7 @@ Model *ResourceManager::getModel(const std::wstring &path) {
     return ptr;
 }
 
-ID3D11ShaderResourceView *ResourceManager::getTexture(const std::wstring &path) {
+ID3D11ShaderResourceView *ResourceManager::getTextureSrv(const std::wstring &path) {
     auto it = textures_.find(path);
     if (it != textures_.end()) {
         return it->second->srv();
@@ -31,6 +31,22 @@ ID3D11ShaderResourceView *ResourceManager::getTexture(const std::wstring &path) 
     textures_[path] = std::move(tex);
     return srv;
 }
+
+
+Texture *ResourceManager::getTexture(const std::wstring &path) {
+    auto it = textures_.find(path);
+    if (it != textures_.end()) {
+        return it->second.get();
+    }
+    if (!device_) return nullptr;
+    auto tex = std::make_unique<Texture>();
+    if (!tex->loadFromFile(device_, path)) {
+        return nullptr;
+    }
+    textures_[path] = std::move(tex);
+    return textures_[path].get();  // 从 map 中获取
+}
+
 
 // Helper function to get lowercase file extension from a wstring path
 static std::wstring getLowercaseExtension(const std::wstring& path) {
@@ -51,7 +67,7 @@ void ResourceManager::preloadResources(const std::vector<std::wstring> &paths) {
         }
         // Texture extensions: .png, .jpg, .jpeg, .dds, .bmp, .tga
         else if (ext == L".png" || ext == L".jpg" || ext == L".jpeg" || ext == L".dds" || ext == L".bmp" || ext == L".tga") {
-            getTexture(p);
+            getTextureSrv(p);
         }
         // else: skip unknown extension
     }

@@ -64,7 +64,10 @@ public:
 
     void drawUiQuad(float x, float y, float width, float height,
                     ID3D11ShaderResourceView *texture,
-                    const DirectX::XMFLOAT4 &tint);
+                    const DirectX::XMFLOAT4 &tint,
+                    float emissive = 1.0f,
+                    float uvOffsetX = 0.0f,
+                    float uvOffsetY = 0.0f);
 
     const Texture &defaultTexture() const { return m_defaultTexture; }
 
@@ -124,6 +127,10 @@ private:
 
     struct UiCB {
         DirectX::XMFLOAT4 tint;
+        float emissive;
+        float uvOffsetX;
+        float uvOffsetY;
+        float padding;
     };
 
     RenderDeviceD3D11 m_dev;

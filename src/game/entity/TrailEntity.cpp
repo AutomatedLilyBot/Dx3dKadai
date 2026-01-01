@@ -11,7 +11,7 @@ void TrailEntity::initialize(ResourceManager *resourceMgr, const std::wstring &t
     // 加载纹理
     if (!texturePath.empty()) {
         // 用户指定了纹理路径，尝试加载
-        texture_ = resourceMgr->getTexture(texturePath);
+        texture_ = resourceMgr->getTextureSrv(texturePath);
         enableTexture = (texture_ != nullptr);
     } else {
         // 未指定纹理，使用默认渐变纹理

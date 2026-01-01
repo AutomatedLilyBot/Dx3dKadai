@@ -27,4 +27,9 @@ public:
     void startFiring();
     void stopFiring();
     void onHitByBullet(WorldContext &ctx, NodeTeam attackerTeam);
+
+    // 判断是否需要显示指示箭头（友方且正在开火）
+    bool shouldShowDirectionIndicator() const {
+        return team == NodeTeam::Friendly && state == NodeState::Firing;
+    }
 };

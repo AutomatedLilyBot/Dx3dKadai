@@ -41,6 +41,9 @@ public:
 
     void updateBillboardOrientation(IEntity *entity, const Camera *camera) override;
 
+    // 重写 render 方法以绘制 Node 指示箭头
+    void render() override;
+
 private:
     ResourceManager resourceManager_;
     Camera camera_; // 场景管理的 Camera

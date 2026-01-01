@@ -8,7 +8,7 @@
 #include <functional>
 #include <memory>
 #include <DirectXMath.h>
-
+#include "core/gfx/Renderer.hpp"
 #include "../src/core/physics/PhysicsWorld.hpp"
 
 // 前置声明
@@ -167,4 +167,5 @@ struct WorldContext {
     const EntityQuery *entities = nullptr;   // 只读实体查询
     CommandBuffer *commands = nullptr;       // 可写命令缓冲
     ResourceManager *resources = nullptr;    // 资源管理器（用于加载模型/纹理）
+    Renderer *currentrenderer = nullptr;    // 当前渲染器
 };

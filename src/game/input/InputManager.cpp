@@ -111,4 +111,8 @@ void InputManager::updateMouseButtons(float dt) {
         }
         rightButtonHoldTime_ = 0.0f;
     }
+
+    // 更新左键按下状态（edge-triggered）
+    leftButtonPressed_ = leftButtonDown_ && !leftButtonWasDown_;
+    leftButtonWasDown_ = leftButtonDown_;
 }

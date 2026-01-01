@@ -18,7 +18,9 @@ public:
 
     Model *getModel(const std::wstring &path);
 
-    ID3D11ShaderResourceView *getTexture(const std::wstring &path);
+    ID3D11ShaderResourceView *getTextureSrv(const std::wstring &path);
+
+    Texture *getTexture(const std::wstring &path);
 
     // 获取或创建四边形模型（用于 Billboard）
     Model *getQuadModel();

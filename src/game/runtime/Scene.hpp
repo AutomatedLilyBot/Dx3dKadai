@@ -12,6 +12,7 @@
 #include "../src/core/gfx/Renderer.hpp"
 #include "../src/core/physics/PhysicsWorld.hpp"
 #include "../src/core/physics/Transform.hpp"
+#include "game/ui/UIElement.hpp"
 
 class SceneManager;
 
@@ -69,6 +70,7 @@ public:
         ctx.entities = &entityQuery; // 实体查询
         ctx.commands = &cmdBuffer_; // 命令缓冲（用于生成/销毁实体）
         ctx.resources = getResourceManager(); // 资源管理器（子类提供）
+        ctx.currentrenderer = renderer_;
 
         // 3.1) 派发碰撞/触发事件到实体
         // 遍历本帧所有碰撞事件，调用实体的 onCollision 回调
@@ -91,6 +93,11 @@ public:
         // - 通过 ctx.commands 发送生成/销毁命令
         for (auto &ptr: entities_) {
             if (ptr) ptr->update(ctx, dt);
+        }
+
+        // 3.3) 更新UI元素
+        for (auto &elem: uiElements_) {
+            if (elem) elem->update(dt);
         }
 
         // 4) 提交命令缓冲
@@ -132,6 +139,9 @@ public:
 
         // 第三遍：渲染 Trail（自定义渲染路径）
         renderTrails(camera);
+
+        // 第四遍：渲染 UI 元素（按layer排序，始终在最上层）
+        renderUI();
     }
 
     // 判断实体是否是Billboard（通过类型检测）
@@ -226,7 +236,14 @@ public:
     void setSceneManager(SceneManager *manager) { manager_ = manager; }
     SceneManager *sceneManager() const { return manager_; }
 
+    // UI管理接口
+    void addUIElement(std::unique_ptr<class UIElement> element);
+    void removeUIElement(class UIElement* element);
+    void clearUIElements();
+
 protected:
+    // UI专用渲染方法
+    virtual void renderUI();
     // 子类可用的工具方法
     // 设置物理世界的碰撞/触发回调
     // 此回调在物理步进时由 PhysicsWorld 调用，用于：
@@ -417,6 +434,9 @@ protected:
     std::vector<CollisionEvent> frameCollisionEvents_;
 
     SceneManager *manager_ = nullptr;
+
+    // UI元素容器
+    std::vector<std::unique_ptr<class UIElement>> uiElements_;
 };
 
 // Trail 渲染实现（需要前向声明）
@@ -453,6 +473,51 @@ inline void Scene::renderTrails(const Camera *camera) {
 
 inline bool Scene::isTrail(IEntity *entity) const {
     return dynamic_cast<TrailEntity *>(entity) != nullptr;
+}
+
+// UI渲染实现
+#include "game/ui/UIElement.hpp"
+#include <algorithm>
+
+inline void Scene::renderUI() {
+    if (!renderer_ || uiElements_.empty()) return;
+
+    // 按layer排序（从小到大，后渲染的在前方）
+    std::vector<UIElement*> sortedUI;
+    for (auto& elem : uiElements_) {
+        if (elem) sortedUI.push_back(elem.get());
+    }
+
+    std::sort(sortedUI.begin(), sortedUI.end(),
+              [](UIElement* a, UIElement* b) {
+                  return a->layer() < b->layer();
+              });
+
+    // 渲染所有UI元素
+    for (auto* elem : sortedUI) {
+        elem->render(renderer_);
+    }
+}
+
+inline void Scene::addUIElement(std::unique_ptr<UIElement> element) {
+    if (element) {
+        element->init();
+        uiElements_.push_back(std::move(element));
+    }
+}
+
+inline void Scene::removeUIElement(UIElement* element) {
+    auto it = std::find_if(uiElements_.begin(), uiElements_.end(),
+                           [element](const std::unique_ptr<UIElement>& ptr) {
+                               return ptr.get() == element;
+                           });
+    if (it != uiElements_.end()) {
+        uiElements_.erase(it);
+    }
+}
+
+inline void Scene::clearUIElements() {
+    uiElements_.clear();
 }
 
 // CommandBuffer::spawnBall 实现（需要在 Scene 定义之后）
