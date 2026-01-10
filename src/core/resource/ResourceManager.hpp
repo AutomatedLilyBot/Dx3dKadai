@@ -27,6 +27,8 @@ public:
 
     // 创建带纹理的四边形模型（每次创建新实例）
     std::unique_ptr<Model> createQuadModelWithTexture(const std::wstring &texturePath);
+    // 创建地面 quad（用于地面指示器）
+    std::unique_ptr<Model> createGroundQuadModelWithTexture(const std::wstring& texturePath);
 
     // 获取或创建 Trail 默认渐变纹理（程序生成）
     ID3D11ShaderResourceView *getTrailGradientTexture();

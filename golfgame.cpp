@@ -14,8 +14,8 @@
 #include "src/game/world/Field.hpp"
 #include "src/game/entity/StaticEntity.hpp"
 #include "src/core/physics/Transform.hpp"
-#include "src/game/runtime/BattleScene.hpp"
-#include "src/game/runtime/MenuScene.hpp"
+#include "src/game/scene/BattleScene.hpp"
+#include "src/game/scene/MenuScene.hpp"
 #include "src/game/runtime/SceneManager.hpp"
 
 using namespace std;

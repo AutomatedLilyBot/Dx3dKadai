@@ -8,7 +8,7 @@
 #include <windows.h>
 #include <string>
 
-#include "SceneManager.hpp"
+#include "../runtime/SceneManager.hpp"
 
 using namespace DirectX;
 
@@ -324,6 +324,11 @@ void BattleScene::render() {
 
     if (!renderer_) return;
 
+    // 设置透明渲染状态（与 Billboard 相同）
+    renderer_->setAlphaBlending(true);
+    renderer_->setDepthWrite(false);
+    renderer_->setBackfaceCulling(false);
+
     // 遍历所有实体，为需要显示指示箭头的 Node 绘制箭头
     for (auto &ptr : entities_) {
         if (!ptr) continue;
@@ -336,50 +341,33 @@ void BattleScene::render() {
 
         // 计算 Node 在世界空间中的位置（正下方）
         DirectX::XMFLOAT3 nodePos = node->transform.position;
-        DirectX::XMFLOAT3 indicatorPos = {nodePos.x, 0.1f, nodePos.z}; // 放在地面上方0.1单位
-
-        // 将世界坐标转换为屏幕坐标
-        DirectX::XMVECTOR worldPos = DirectX::XMLoadFloat3(&indicatorPos);
-        DirectX::XMMATRIX view = camera_.getViewMatrix();
-        DirectX::XMMATRIX proj = camera_.getProjectionMatrix(16.0/9);
-        DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, proj);
-
-        DirectX::XMVECTOR screenPos = DirectX::XMVector3TransformCoord(worldPos, viewProj);
-        DirectX::XMFLOAT3 screenPosF;
-        DirectX::XMStoreFloat3(&screenPosF, screenPos);
-
-        // NDC 坐标转换为屏幕坐标 (0-1)
-        float screenX = (screenPosF.x + 1.0f) * 0.5f;
-        float screenY = (1.0f - screenPosF.y) * 0.5f;
-
-        // 检查是否在屏幕内且在相机前方
-        if (screenPosF.z < 0.0f || screenPosF.z > 1.0f ||
-            screenX < 0.0f || screenX > 1.0f ||
-            screenY < 0.0f || screenY > 1.0f) {
-            continue; // 不在屏幕内，跳过
-        }
 
         // 计算箭头的朝向角度（基于 Node 的 facingDirection）
         float yaw = atan2f(node->facingDirection.x, node->facingDirection.z);
 
-        // 加载箭头纹理（使用 number_atlas0.png 作为临时箭头图标）
-        std::wstring arrowPath = ExeDirBattleScene() + L"\\asset\\number_atlas0 .png";
-        ID3D11ShaderResourceView *arrowTexsrv = resourceManager_.getTextureSrv(arrowPath);
+        // 构建箭头的变换矩阵
+        DirectX::XMMATRIX world =
+                    DirectX::XMMatrixScaling(2.0f, 2.0f, 2.0f) *
+                    DirectX::XMMatrixRotationY(yaw)*
+                    DirectX::XMMatrixTranslation(
+                        node->transform.position.x,
+                        node->transform.position.y + 0.05f,
+                        node->transform.position.z
+                    );
 
-        if (arrowTexsrv) {
-            // 绘制箭头（居中在 Node 正下方）
-            float arrowSize = 0.05f; // 屏幕空间大小（归一化）
-            renderer_->drawUiQuad(
-                screenX - arrowSize * 0.5f,
-                screenY - arrowSize * 0.5f,
-                arrowSize,
-                arrowSize,
-                arrowTexsrv,
-                DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f), // 黄色
-                1.0f,
-                0.0f,
-                0.0f
-            );
+        // 加载箭头纹理并创建 quad 模型
+        std::wstring arrowPath = ExeDirBattleScene() + L"\\asset\\indicator.png";
+        auto arrowModel = resourceManager_.createGroundQuadModelWithTexture(arrowPath);
+
+        if (arrowModel) {
+            // 绘制箭头（使用白色tint以显示原始纹理颜色）
+            DirectX::XMFLOAT4 tint(1.0f, 1.0f, 1.0f, 1.0f);
+            renderer_->drawModel(*arrowModel, world, &tint);
         }
     }
+
+    // 恢复默认渲染状态
+    renderer_->setAlphaBlending(false);
+    renderer_->setDepthWrite(true);
+    renderer_->setBackfaceCulling(true);
 }

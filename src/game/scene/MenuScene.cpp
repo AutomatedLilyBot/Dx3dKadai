@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "SceneManager.hpp"
+#include "../runtime/SceneManager.hpp"
 #include "TransitionScene.hpp"
 #include "BattleScene.hpp"
 

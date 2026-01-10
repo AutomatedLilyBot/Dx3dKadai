@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "Scene.hpp"
+#include "../runtime/Scene.hpp"
 #include "../entity/BlockEntity.hpp"
 #include "../entity/NodeEntity.hpp"
 #include "../../core/resource/ResourceManager.hpp"

@@ -1,5 +1,5 @@
 #include "SceneManager.hpp"
-#include "TransitionScene.hpp"
+#include "../scene/TransitionScene.hpp"
 
 SceneManager::SceneManager(Renderer *renderer) : renderer_(renderer) {}
 

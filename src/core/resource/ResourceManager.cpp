@@ -246,3 +246,69 @@ std::unique_ptr<Model> ResourceManager::createQuadModelWithTexture(const std::ws
 
     return model;
 }
+
+std::unique_ptr<Model> ResourceManager::createGroundQuadModelWithTexture(const std::wstring &texturePath) {
+    if (!device_) return nullptr;
+
+    auto model = std::make_unique<Model>();
+
+    float halfSize = 0.5f;
+
+    // 使用 VertexPNCT 格式的向量
+    std::vector<VertexPNCT> vertices = {
+        {{-halfSize, 0.0f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-halfSize, 0.0f, halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+        {{halfSize, 0.0f, -halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+        {{halfSize, 0.0f, halfSize}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}}
+    };
+    std::vector<uint16_t> indices = {
+        0, 1, 2,
+        2, 1, 3
+    };
+
+    // 创建 Mesh
+    Mesh quadMesh;
+    if (!quadMesh.createFromPNCT(device_, vertices, indices)) {
+        return nullptr;
+    }
+
+    // 创建 MeshGPU
+    Model::MeshGPU meshGPU;
+    meshGPU.mesh = std::move(quadMesh);
+    meshGPU.materialIndex = 0; // 使用第一个材质
+
+    model->meshes.push_back(std::move(meshGPU));
+
+    // 加载纹理并创建材质
+    Model::Material mat;
+    auto tex = textures_.find(texturePath);
+    if (tex != textures_.end() && tex->second) {
+        // 纹理已缓存，直接使用
+        mat.diffuse = *(tex->second);
+    } else {
+        // 尝试加载新纹理
+        Texture newTex;
+        if (newTex.loadFromFile(device_, texturePath)) {
+            mat.diffuse = std::move(newTex);
+            // 可选：缓存这个纹理
+            textures_[texturePath] = std::make_unique<Texture>(std::move(mat.diffuse));
+        }
+        // 如果加载失败，diffuse 会是空的，Renderer 会使用默认纹理
+    }
+
+    model->materials.push_back(std::move(mat));
+
+    // 创建 DrawItem
+    Model::DrawItem drawItem;
+    drawItem.meshIndex = 0;
+    drawItem.nodeGlobal = DirectX::XMFLOAT4X4(
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    );
+
+    model->drawItems.push_back(drawItem);
+
+    return model;
+}

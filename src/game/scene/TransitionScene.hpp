@@ -1,5 +1,5 @@
 #pragma once
-#include "Scene.hpp"
+#include "../runtime/Scene.hpp"
 #include "../../core/gfx/Texture.hpp"
 #include <memory>
 

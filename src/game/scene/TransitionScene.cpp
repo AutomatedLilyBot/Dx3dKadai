@@ -1,5 +1,5 @@
 #include "TransitionScene.hpp"
-#include "SceneManager.hpp"
+#include "../runtime/SceneManager.hpp"
 
 #include <windows.h>
 
