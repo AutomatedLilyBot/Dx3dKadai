@@ -13,9 +13,10 @@ void UIElement::render(Renderer* renderer) {
     float finalX = transform_.x + offsetX;
     float finalY = transform_.y + offsetY;
 
-    // 调用Renderer的UI绘制接口（传递emissive和UV偏移）
+    // 调用Renderer的UI绘制接口（传递emissive、UV偏移和UV缩放）
+    // 默认uvScale=1.0表示显示整张纹理
     renderer->drawUiQuad(finalX, finalY, finalWidth, finalHeight,
-                         texture_->srv(), tint_, emissive_, 0.0f, 0.0f);
+                         texture_->srv(), tint_, emissive_, 0.0f, 0.0f, 1.0f, 1.0f);
 }
 
 bool UIElement::containsPoint(float screenX, float screenY) const {

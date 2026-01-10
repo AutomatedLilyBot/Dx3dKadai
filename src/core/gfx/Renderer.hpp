@@ -67,7 +67,9 @@ public:
                     const DirectX::XMFLOAT4 &tint,
                     float emissive = 1.0f,
                     float uvOffsetX = 0.0f,
-                    float uvOffsetY = 0.0f);
+                    float uvOffsetY = 0.0f,
+                    float uvScaleX = 1.0f,
+                    float uvScaleY = 1.0f);
 
     const Texture &defaultTexture() const { return m_defaultTexture; }
 
@@ -130,7 +132,10 @@ private:
         float emissive;
         float uvOffsetX;
         float uvOffsetY;
-        float padding;
+        float uvScaleX;
+        float uvScaleY;
+        float padding1;
+        float padding2;
     };
 
     RenderDeviceD3D11 m_dev;

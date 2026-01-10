@@ -1,7 +1,8 @@
 #pragma once
-#include "Scene.hpp"
+#include "../runtime/Scene.hpp"
 #include "../../core/gfx/Texture.hpp"
 #include "../input/InputManager.hpp"
+#include "game//ui/UIButton.hpp"
 
 class MenuScene : public Scene {
 public:
@@ -22,8 +23,8 @@ private:
     Texture exitButton_;
 
     // UI元素指针（用于回调访问，生命周期由Scene管理）
-    class UIButton* startButtonUI_ = nullptr;
-    class UIButton* exitButtonUI_ = nullptr;
+    UIButton* startButtonUI_ = nullptr;
+    UIButton* exitButtonUI_ = nullptr;
 
     // 输入管理器
     InputManager inputManager_;

@@ -192,7 +192,9 @@ void Renderer::drawUiQuad(float x, float y, float width, float height,
                           const DirectX::XMFLOAT4 &tint,
                           float emissive,
                           float uvOffsetX,
-                          float uvOffsetY) {
+                          float uvOffsetY,
+                          float uvScaleX,
+                          float uvScaleY) {
     if (!m_uiShader.vs() || !m_uiVB) return;
 
     const float left = x * 2.0f - 1.0f;
@@ -217,7 +219,7 @@ void Renderer::drawUiQuad(float x, float y, float width, float height,
         m_dev.context()->Unmap(m_uiVB.Get(), 0);
     }
 
-    UiCB cb{tint, emissive, uvOffsetX, uvOffsetY, 0.0f};
+    UiCB cb{tint, emissive, uvOffsetX, uvOffsetY, uvScaleX, uvScaleY, 0.0f, 0.0f};
     m_dev.context()->UpdateSubresource(m_cbUi.Get(), 0, nullptr, &cb, 0, 0);
 
     UINT stride = sizeof(UiVertex);

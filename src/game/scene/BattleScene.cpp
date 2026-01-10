@@ -8,7 +8,7 @@
 #include <windows.h>
 #include <string>
 
-#include "SceneManager.hpp"
+#include "../runtime/SceneManager.hpp"
 
 using namespace DirectX;
 
@@ -41,6 +41,8 @@ void BattleScene::init(Renderer *renderer) {
 
     createField();
     createNodes();
+    createUI();
+
 }
 
 void BattleScene::createField() {
@@ -165,6 +167,112 @@ void BattleScene::createNodes() {
     createNodeAt(XMFLOAT3{0, 1, 0}, NodeTeam::Friendly);
     createNodeAt(XMFLOAT3{2, 1, 2}, NodeTeam::Enemy);
     createNodeAt(XMFLOAT3{-2, 1, -2}, NodeTeam::Neutral);
+}
+
+void BattleScene::createUI() {
+
+    std::wstring scorepath = ExeDirBattleScene() + L"\\asset\\main_scoreboard.png";
+    Texture *score= resourceManager_.getTexture(scorepath);
+
+    auto scoreImage = std::make_unique<UIImage>();
+    scoreImage->transform().x = 0.4f;
+    scoreImage->transform().y = 0.0f;
+    scoreImage->transform().width = 0.2f;
+    scoreImage->transform().height = scoreImage->transform().width/2;
+    scoreImage->setTexture(score);
+    scoreImage->setLayer(0);
+    addUIElement(std::move(scoreImage));
+
+    std::wstring detailpath = ExeDirBattleScene() + L"\\asset\\main_detail.png";
+    Texture *detail= resourceManager_.getTexture(detailpath);
+
+    auto detailImage = std::make_unique<UIImage>();
+    detailImage->transform().x = 0.3f;
+    detailImage->transform().y = 0.9f;
+    detailImage->transform().width = 0.4f;
+    detailImage->transform().height = detailImage->transform().width/4;
+    detailImage->setTexture(detail);
+    detailImage->setLayer(0);
+    addUIElement(std::move(detailImage));
+
+    std::wstring numberpath = ExeDirBattleScene() + L"\\asset\\number_atlas1.png";
+    Texture *numbertex= resourceManager_.getTexture(numberpath);
+
+    auto totalnum = std::make_unique<UINumberDisplay>();
+    totalnum->transform().x = 0.48f;
+    totalnum->transform().y = 0.025f;
+    totalnum->transform().width = 0.05f;
+    totalnum->setDigitSpacing(0);
+    totalnum->transform().height = totalnum->transform().width;
+    totalnum->setTexture(numbertex);
+    totalnum->setLayer(1);
+    totalnum->setValue(10);
+    totalNodeCount_=totalnum.get();
+    addUIElement(std::move(totalnum));
+
+    auto friendlynum = std::make_unique<UINumberDisplay>();
+    friendlynum->transform().x = 0.42f;
+    friendlynum->transform().y = 0.02f;
+    friendlynum->transform().width = 0.05f;
+    friendlynum->setDigitSpacing(0);
+    friendlynum->transform().height = friendlynum->transform().width;
+    friendlynum->setTexture(numbertex);
+    friendlynum->setLayer(1);
+    friendlynum->setValue(10);
+    friendlynum->setTint(XMFLOAT4(0, 0, 1, 1));
+    friendlyNodeCount_=friendlynum.get();
+    addUIElement(std::move(friendlynum));
+
+    auto enemynum = std::make_unique<UINumberDisplay>();
+    enemynum->transform().x = 0.54f;
+    enemynum->transform().y = 0.02f;
+    enemynum->transform().width = 0.05f;
+    enemynum->setDigitSpacing(0);
+    enemynum->transform().height = enemynum->transform().width;
+    enemynum->setTexture(numbertex);
+    enemynum->setLayer(1);
+    enemynum->setValue(10);
+    enemynum->setTint(XMFLOAT4(1, 0, 0, 1));
+    enemyNodeCount_=enemynum.get();
+    addUIElement(std::move(enemynum));
+
+    auto healthnum = std::make_unique<UINumberDisplay>();
+    healthnum->transform().x = 0.48f;
+    healthnum->transform().y = 0.9f;
+    healthnum->transform().width = 0.1f;
+    healthnum->transform().height = healthnum->transform().width;
+    healthnum->setTexture(numbertex);
+    healthnum->setLayer(1);
+    healthnum->setValue(10);
+    healthnum->setTint(XMFLOAT4(0, 1, 1, 1));
+    selectedNodeHealth_=healthnum.get();
+    addUIElement(std::move(healthnum));
+
+    auto powernum = std::make_unique<UINumberDisplay>();
+    powernum->transform().x = 0.37f;
+    powernum->transform().y = 0.94f;
+    powernum->transform().width = 0.05f;
+    powernum->transform().height = powernum->transform().width;
+    powernum->setTexture(numbertex);
+    powernum->setLayer(1);
+    powernum->setValue(9);
+    powernum->setTint(XMFLOAT4(0, 0, 1.0, 1));
+    selectedNodePower_=powernum.get();
+    addUIElement(std::move(powernum));
+
+    auto firenum = std::make_unique<UINumberDisplay>();
+    firenum->transform().x = 0.56f;
+    firenum->transform().y = 0.94f;
+    firenum->transform().width = 0.05f;
+    firenum->transform().height = firenum->transform().width;
+    firenum->setTexture(numbertex);
+    firenum->setLayer(1);
+    firenum->setValue(0.3);
+    firenum->setTint(XMFLOAT4(0, 1, 0.2, 1));
+    selectedNodeFireInterval_=firenum.get();
+    addUIElement(std::move(firenum));
+
+
 }
 
 void BattleScene::tick(float dt) {
@@ -324,6 +432,11 @@ void BattleScene::render() {
 
     if (!renderer_) return;
 
+    // 设置透明渲染状态（与 Billboard 相同）
+    renderer_->setAlphaBlending(true);
+    renderer_->setDepthWrite(false);
+    renderer_->setBackfaceCulling(false);
+
     // 遍历所有实体，为需要显示指示箭头的 Node 绘制箭头
     for (auto &ptr : entities_) {
         if (!ptr) continue;
@@ -336,50 +449,33 @@ void BattleScene::render() {
 
         // 计算 Node 在世界空间中的位置（正下方）
         DirectX::XMFLOAT3 nodePos = node->transform.position;
-        DirectX::XMFLOAT3 indicatorPos = {nodePos.x, 0.1f, nodePos.z}; // 放在地面上方0.1单位
-
-        // 将世界坐标转换为屏幕坐标
-        DirectX::XMVECTOR worldPos = DirectX::XMLoadFloat3(&indicatorPos);
-        DirectX::XMMATRIX view = camera_.getViewMatrix();
-        DirectX::XMMATRIX proj = camera_.getProjectionMatrix(16.0/9);
-        DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, proj);
-
-        DirectX::XMVECTOR screenPos = DirectX::XMVector3TransformCoord(worldPos, viewProj);
-        DirectX::XMFLOAT3 screenPosF;
-        DirectX::XMStoreFloat3(&screenPosF, screenPos);
-
-        // NDC 坐标转换为屏幕坐标 (0-1)
-        float screenX = (screenPosF.x + 1.0f) * 0.5f;
-        float screenY = (1.0f - screenPosF.y) * 0.5f;
-
-        // 检查是否在屏幕内且在相机前方
-        if (screenPosF.z < 0.0f || screenPosF.z > 1.0f ||
-            screenX < 0.0f || screenX > 1.0f ||
-            screenY < 0.0f || screenY > 1.0f) {
-            continue; // 不在屏幕内，跳过
-        }
 
         // 计算箭头的朝向角度（基于 Node 的 facingDirection）
         float yaw = atan2f(node->facingDirection.x, node->facingDirection.z);
 
-        // 加载箭头纹理（使用 number_atlas0.png 作为临时箭头图标）
-        std::wstring arrowPath = ExeDirBattleScene() + L"\\asset\\number_atlas0 .png";
-        ID3D11ShaderResourceView *arrowTexsrv = resourceManager_.getTextureSrv(arrowPath);
+        // 构建箭头的变换矩阵
+        DirectX::XMMATRIX world =
+                    DirectX::XMMatrixScaling(2.0f, 2.0f, 2.0f) *
+                    DirectX::XMMatrixRotationY(yaw)*
+                    DirectX::XMMatrixTranslation(
+                        node->transform.position.x,
+                        node->transform.position.y + 0.05f,
+                        node->transform.position.z
+                    );
 
-        if (arrowTexsrv) {
-            // 绘制箭头（居中在 Node 正下方）
-            float arrowSize = 0.05f; // 屏幕空间大小（归一化）
-            renderer_->drawUiQuad(
-                screenX - arrowSize * 0.5f,
-                screenY - arrowSize * 0.5f,
-                arrowSize,
-                arrowSize,
-                arrowTexsrv,
-                DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f), // 黄色
-                1.0f,
-                0.0f,
-                0.0f
-            );
+        // 加载箭头纹理并创建 quad 模型
+        std::wstring arrowPath = ExeDirBattleScene() + L"\\asset\\indicator.png";
+        auto arrowModel = resourceManager_.createGroundQuadModelWithTexture(arrowPath);
+
+        if (arrowModel) {
+            // 绘制箭头（使用白色tint以显示原始纹理颜色）
+            DirectX::XMFLOAT4 tint(1.0f, 1.0f, 1.0f, 1.0f);
+            renderer_->drawModel(*arrowModel, world, &tint);
         }
     }
+
+    // 恢复默认渲染状态
+    renderer_->setAlphaBlending(false);
+    renderer_->setDepthWrite(true);
+    renderer_->setBackfaceCulling(true);
 }

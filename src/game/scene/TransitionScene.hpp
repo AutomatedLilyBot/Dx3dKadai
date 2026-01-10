@@ -1,5 +1,5 @@
 #pragma once
-#include "Scene.hpp"
+#include "../runtime/Scene.hpp"
 #include "../../core/gfx/Texture.hpp"
 #include <memory>
 
@@ -15,6 +15,6 @@ public:
 private:
     std::unique_ptr<Scene> nextScene_;
     float timer_ = 0.0f;
-    float duration_ = 3.0f;
+    float duration_ = 1.0f;
     Texture loadingTexture_;
 };

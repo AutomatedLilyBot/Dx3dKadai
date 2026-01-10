@@ -1,11 +1,13 @@
 ﻿#pragma once
-#include "Scene.hpp"
+#include "../runtime/Scene.hpp"
 #include "../entity/BlockEntity.hpp"
 #include "../entity/NodeEntity.hpp"
 #include "../../core/resource/ResourceManager.hpp"
 #include "../../core/gfx/Camera.hpp"
 #include "../input/InputManager.hpp"
 #include <SFML/Window.hpp>
+
+#include "game/ui/UINumberDisplay.hpp"
 
 class BattleScene : public Scene {
 public:
@@ -45,14 +47,28 @@ public:
     void render() override;
 
 private:
-    ResourceManager resourceManager_;
     Camera camera_; // 场景管理的 Camera
     InputManager inputManager_; // 输入管理器
 
     // 当前选中的 Node（用于控制）
     EntityId selectedNodeId_ = 0;
 
+    // 上方显示区的数字元素的指针
+    UINumberDisplay* totalNodeCount_;
+    UINumberDisplay* friendlyNodeCount_;
+    UINumberDisplay* enemyNodeCount_;
+
+    // 下方详情区的数字元素的指针
+
+    UINumberDisplay* selectedNodeHealth_;
+    UINumberDisplay* selectedNodePower_;
+    UINumberDisplay* selectedNodeFireInterval_;
+
+    ResourceManager resourceManager_;
+
     void createField();
 
     void createNodes();
+
+    void createUI();
 };

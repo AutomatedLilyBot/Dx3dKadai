@@ -1,17 +1,15 @@
 ﻿#pragma once
-#pragma execution_character_set("utf-8")
-
 #include <algorithm>
 #include <vector>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
-
 #include "WorldContext.hpp"
 #include "IEntity.hpp"
 #include "../src/core/gfx/Renderer.hpp"
 #include "../src/core/physics/PhysicsWorld.hpp"
 #include "../src/core/physics/Transform.hpp"
+#include "core/resource/ResourceManager.hpp"
 #include "game/ui/UIElement.hpp"
 
 class SceneManager;
@@ -242,6 +240,40 @@ public:
     void clearUIElements();
 
 protected:
+
+    Renderer *renderer_ = nullptr; // 仅保存指针，生命周期由外部管理
+    PhysicsWorld world_{};
+    PhysicsQuery query_{}; // 当前帧只读物理查询视图
+    CommandBuffer cmdBuffer_{}; // 命令缓冲
+    float time_ = 0.0f;
+
+    // 资源与实体容器
+    std::vector<std::unique_ptr<IEntity> > entities_;
+    std::unordered_map<EntityId, IEntity *> id2ptr_;
+    EntityId nextId_ = 0;
+
+    // 触发器重叠缓存（entity→set），由物理回调维护
+    std::unordered_map<EntityId, std::unordered_set<EntityId> > triggerOverlaps_;
+    std::unordered_map<EntityId, std::unordered_set<EntityId> > tempTriggerOverlaps_;
+
+    // 碰撞事件缓存（物理回调 → 帧内派发）
+    struct CollisionEvent {
+        EntityId a{0};
+        EntityId b{0};
+        TriggerPhase phase{TriggerPhase::Stay};
+        OverlapResult contact{};
+    };
+
+    std::vector<CollisionEvent> tempCollisionEvents_;
+    std::vector<CollisionEvent> frameCollisionEvents_;
+
+    SceneManager *manager_ = nullptr;
+
+    // UI元素容器
+    std::vector<std::unique_ptr<class UIElement>> uiElements_;
+    ResourceManager resourceManager_;
+
+
     // UI专用渲染方法
     virtual void renderUI();
     // 子类可用的工具方法
@@ -406,37 +438,7 @@ protected:
         world_.unregisterEntity(id);
     }
 
-protected:
-    Renderer *renderer_ = nullptr; // 仅保存指针，生命周期由外部管理
-    PhysicsWorld world_{};
-    PhysicsQuery query_{}; // 当前帧只读物理查询视图
-    CommandBuffer cmdBuffer_{}; // 命令缓冲
-    float time_ = 0.0f;
 
-    // 资源与实体容器
-    std::vector<std::unique_ptr<IEntity> > entities_;
-    std::unordered_map<EntityId, IEntity *> id2ptr_;
-    EntityId nextId_ = 0;
-
-    // 触发器重叠缓存（entity→set），由物理回调维护
-    std::unordered_map<EntityId, std::unordered_set<EntityId> > triggerOverlaps_;
-    std::unordered_map<EntityId, std::unordered_set<EntityId> > tempTriggerOverlaps_;
-
-    // 碰撞事件缓存（物理回调 → 帧内派发）
-    struct CollisionEvent {
-        EntityId a{0};
-        EntityId b{0};
-        TriggerPhase phase{TriggerPhase::Stay};
-        OverlapResult contact{};
-    };
-
-    std::vector<CollisionEvent> tempCollisionEvents_;
-    std::vector<CollisionEvent> frameCollisionEvents_;
-
-    SceneManager *manager_ = nullptr;
-
-    // UI元素容器
-    std::vector<std::unique_ptr<class UIElement>> uiElements_;
 };
 
 // Trail 渲染实现（需要前向声明）
