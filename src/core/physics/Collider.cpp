@@ -768,6 +768,10 @@ size_t overlapAll(const std::vector<ColliderBase *> &colliders, std::vector<Coll
     for (size_t i = 0; i < n; ++i) {
         for (size_t j = i + 1; j < n; ++j) {
             if (!colliders[i] || !colliders[j]) continue;
+            // 优化：跳过静态-静态碰撞对
+            if (colliders[i]->isStatic() && colliders[j]->isStatic()) {
+                continue;
+            }
             if (Intersect(*colliders[i], *colliders[j])) {
                 outPairs.emplace_back(colliders[i], colliders[j]);
             }

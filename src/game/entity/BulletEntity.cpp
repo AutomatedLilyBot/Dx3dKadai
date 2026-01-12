@@ -56,11 +56,20 @@ void BulletEntity::update(WorldContext &ctx, float dt) {
     // 增加存活时间
     timeAlive += dt;
 
+    switch (this->team) {
+        case NodeTeam::Friendly:
+            this->materialData.baseColorFactor = XMFLOAT4{0.2f, 0.6f, 1.0f, 0.8f}; // 蓝色
+            break;
+        case NodeTeam::Enemy:
+            this->materialData.baseColorFactor = XMFLOAT4{1.0f, 0.2f, 0.2f, 0.8f}; // 红色
+            break;
+        case NodeTeam::Neutral:
+            this->materialData.baseColorFactor = XMFLOAT4{0.8f, 0.8f, 0.8f, 0.8f}; // 灰色
+            break;
+    }
+
     // 更新拖尾效果
-    if (enableTrail &&ctx
-    .
-    resources
-    )
+    if (enableTrail &&ctx.resources)
     {
         // 创建 Trail（如果还没有）
         if (trailEntityId == 0) {
@@ -155,7 +164,7 @@ void BulletEntity::onCollision(WorldContext &ctx, EntityId other, TriggerPhase p
         // Collision with BlockEntity is handled by BlockEntity::onCollision (responseType), so do nothing here.
     } else if (dynamic_cast<NodeEntity *>(otherEntity)) {
         NodeEntity *hitnode = dynamic_cast<NodeEntity *>(otherEntity);
-        hitnode->onHitByBullet(ctx, this->team);
+        hitnode->onHitByBullet(ctx, this->team, this->power);
 
         // 在碰撞点生成爆炸特效
         XMFLOAT3 collisionPoint;

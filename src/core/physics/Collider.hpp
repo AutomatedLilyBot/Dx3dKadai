@@ -101,6 +101,11 @@ public:
 
     virtual bool isTrigger() const = 0;
 
+    // Static 标志：标记为 static 的碰撞体在物理检测中可优化（不与其他静态碰撞体检测）
+    virtual void setIsStatic(bool isStatic) = 0;
+
+    virtual bool isStatic() const = 0;
+
     // —— 新增：Owner 世界位姿注入/读取 ——
     // 上层每帧应调用以下接口将 Owner 世界位姿写入 Collider（仅存储，不做所有权）。
     virtual void setOwnerWorldPosition(const DirectX::XMFLOAT3 &ownerPosW) = 0;

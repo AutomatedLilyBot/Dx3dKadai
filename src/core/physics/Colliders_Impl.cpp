@@ -89,6 +89,9 @@ namespace {
         void setIsTrigger(bool trigger) override { m_isTrigger = trigger; }
         bool isTrigger() const override { return m_isTrigger; }
 
+        void setIsStatic(bool isStatic) override { m_isStatic = isStatic; }
+        bool isStatic() const override { return m_isStatic; }
+
         // Sphere specifics
         float radiusLocal() const override { return m_radiusLocal; }
         float radiusWorld() const override { return m_radiusLocal * m_scl.x; }
@@ -169,6 +172,7 @@ namespace {
         XMFLOAT4 m_dbgColor{0, 0.5f, 1, 1};
         XMFLOAT3 m_ownerOffset{0, 0, 0};
         bool m_isTrigger{false};
+        bool m_isStatic{false};
     };
 
     class ObbColliderImpl final : public ObbCollider {
@@ -246,6 +250,9 @@ namespace {
 
         void setIsTrigger(bool trigger) override { m_isTrigger = trigger; }
         bool isTrigger() const override { return m_isTrigger; }
+
+        void setIsStatic(bool isStatic) override { m_isStatic = isStatic; }
+        bool isStatic() const override { return m_isStatic; }
 
         // Owner 世界位姿注入/读取
         void setOwnerWorldPosition(const XMFLOAT3 &ownerPosW) override { m_ownerPos = ownerPosW; }
@@ -356,6 +363,7 @@ namespace {
         XMFLOAT4 m_dbgColor{0, 1, 0, 1};
         XMFLOAT3 m_ownerOffset{0, 0, 0};
         bool m_isTrigger{false};
+        bool m_isStatic{false};
     };
 
     class CapsuleColliderImpl final : public CapsuleCollider {
@@ -441,6 +449,9 @@ namespace {
 
         void setIsTrigger(bool trigger) override { m_isTrigger = trigger; }
         bool isTrigger() const override { return m_isTrigger; }
+
+        void setIsStatic(bool isStatic) override { m_isStatic = isStatic; }
+        bool isStatic() const override { return m_isStatic; }
 
         // Owner 世界位姿注入/读取
         void setOwnerWorldPosition(const XMFLOAT3 &ownerPosW) override { m_ownerPos = ownerPosW; }
@@ -580,6 +591,7 @@ namespace {
         XMFLOAT4 m_dbgColor{1, 0.5f, 0, 1};
         XMFLOAT3 m_ownerOffset{0, 0, 0};
         bool m_isTrigger{false};
+        bool m_isStatic{false};
     };
 } // namespace
 

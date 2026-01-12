@@ -4,6 +4,7 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <chrono>
 #include "WorldContext.hpp"
 #include "IEntity.hpp"
 #include "../src/core/gfx/Renderer.hpp"
@@ -33,6 +34,10 @@ public:
     virtual void tick(float dt) {
         time_ += dt;
 
+        // 性能计时开始
+        auto frameStart = std::chrono::high_resolution_clock::now();
+        auto lastCheckpoint = frameStart;
+
         // 0.5) 物理前：将外部直接改动的 Transform 写入 PhysicsWorld
         for (auto &ptr: entities_) {
             if (!ptr) continue;
@@ -41,11 +46,23 @@ public:
             world_.syncOwnerTransform(ptr->id(), tr.position, rotEuler, false);
         }
 
+        auto checkpoint1 = std::chrono::high_resolution_clock::now();
+        float syncTransformTime = std::chrono::duration<float, std::milli>(checkpoint1 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint1;
+
         // 1) 物理步
         world_.step(dt);
 
+        auto checkpoint2 = std::chrono::high_resolution_clock::now();
+        float physicsStepTime = std::chrono::duration<float, std::milli>(checkpoint2 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint2;
+
         // 2) 构建只读物理查询视图
         buildPhysicsQueryFromLastFrame();
+
+        auto checkpoint3 = std::chrono::high_resolution_clock::now();
+        float buildQueryTime = std::chrono::duration<float, std::milli>(checkpoint3 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint3;
 
         // 2.5) 将物理解算后的刚体位置写回实体 Transform
         for (auto &ptr: entities_) {
@@ -54,6 +71,10 @@ public:
                 ptr->transformRef().position = rb->position;
             }
         }
+
+        auto checkpoint4 = std::chrono::high_resolution_clock::now();
+        float writeBackTime = std::chrono::duration<float, std::milli>(checkpoint4 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint4;
 
         // === 3) 构建 WorldContext 并派发事件到实体 ===
         // 准备只读查询接口
@@ -84,6 +105,10 @@ public:
         }
         frameCollisionEvents_.clear();
 
+        auto checkpoint5 = std::chrono::high_resolution_clock::now();
+        float collisionEventTime = std::chrono::duration<float, std::milli>(checkpoint5 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint5;
+
         // 3.2) 逐实体更新逻辑
         // 调用每个实体的 update() 方法，实体可以：
         // - 查询物理状态（如触发器重叠）
@@ -93,18 +118,79 @@ public:
             if (ptr) ptr->update(ctx, dt);
         }
 
+        auto checkpoint6 = std::chrono::high_resolution_clock::now();
+        float entityUpdateTime = std::chrono::duration<float, std::milli>(checkpoint6 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint6;
+
         // 3.3) 更新UI元素
         for (auto &elem: uiElements_) {
             if (elem) elem->update(dt);
         }
 
+        auto checkpoint7 = std::chrono::high_resolution_clock::now();
+        float uiUpdateTime = std::chrono::duration<float, std::milli>(checkpoint7 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint7;
+
         // 4) 提交命令缓冲
         submitCommands();
+
+        auto checkpoint8 = std::chrono::high_resolution_clock::now();
+        float submitCommandTime = std::chrono::duration<float, std::milli>(checkpoint8 - lastCheckpoint).count();
+
+        float totalTime = std::chrono::duration<float, std::milli>(checkpoint8 - frameStart).count();
+
+        // 每60帧输出一次性能统计
+        static int frameCounter = 0;
+        if (++frameCounter >= 60) {
+            // 计算渲染平均耗时
+            float avgOpaqueRender = renderStats_.frameCount > 0
+                                        ? renderStats_.opaqueTime / renderStats_.frameCount
+                                        : 0.0f;
+            float avgBillboardRender = renderStats_.frameCount > 0
+                                           ? renderStats_.billboardTime / renderStats_.frameCount
+                                           : 0.0f;
+            float avgTrailRender = renderStats_.frameCount > 0
+                                       ? renderStats_.trailTime / renderStats_.frameCount
+                                       : 0.0f;
+            float avgUIRender = renderStats_.frameCount > 0 ? renderStats_.uiTime / renderStats_.frameCount : 0.0f;
+            float avgTotalRender = renderStats_.frameCount > 0
+                                       ? renderStats_.totalTime / renderStats_.frameCount
+                                       : 0.0f;
+
+            printf("\n========== Performance Statistics (Entity count: %zu) ==========\n", entities_.size());
+            printf("--- Logic Update ---\n");
+            printf("  Sync Transform:   %.3f ms\n", syncTransformTime);
+            printf("  Physics Step:     %.3f ms\n", physicsStepTime);
+            printf("  Build Query:      %.3f ms\n", buildQueryTime);
+            printf("  Write Back:       %.3f ms\n", writeBackTime);
+            printf("  Collision Events: %.3f ms\n", collisionEventTime);
+            printf("  Entity Update:    %.3f ms\n", entityUpdateTime);
+            printf("  UI Update:        %.3f ms\n", uiUpdateTime);
+            printf("  Submit Commands:  %.3f ms\n", submitCommandTime);
+            printf("  Total Logic:      %.3f ms\n", totalTime);
+            printf("\n--- Rendering (avg over %d frames) ---\n", renderStats_.frameCount);
+            printf("  Opaque Objects:   %.3f ms\n", avgOpaqueRender);
+            printf("  Billboards:       %.3f ms\n", avgBillboardRender);
+            printf("  Trails:           %.3f ms\n", avgTrailRender);
+            printf("  UI Render:        %.3f ms\n", avgUIRender);
+            printf("  Total Render:     %.3f ms\n", avgTotalRender);
+            printf("\n--- Overall ---\n");
+            printf("  Total Frame Time: %.3f ms (%.1f FPS)\n", totalTime + avgTotalRender,
+                   1000.0f / (totalTime + avgTotalRender));
+            printf("===============================================================\n\n");
+
+            frameCounter = 0;
+            renderStats_.reset();
+        }
     }
 
     // 渲染场景（分层渲染：不透明物体 → Billboard）
     virtual void render() {
         if (!renderer_) return;
+
+        // 性能计时开始
+        auto renderStart = std::chrono::high_resolution_clock::now();
+        auto lastCheckpoint = renderStart;
 
         // 获取当前相机（从 Renderer 或子类提供）
         const Camera *camera = getCameraForRendering();
@@ -132,14 +218,39 @@ public:
             }
         }
 
+        auto checkpoint1 = std::chrono::high_resolution_clock::now();
+        float opaqueRenderTime = std::chrono::duration<float, std::milli>(checkpoint1 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint1;
+
         // 第二遍：渲染 Billboard（透明物体，按距离排序）
         renderBillboards(camera);
+
+        auto checkpoint2 = std::chrono::high_resolution_clock::now();
+        float billboardRenderTime = std::chrono::duration<float, std::milli>(checkpoint2 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint2;
 
         // 第三遍：渲染 Trail（自定义渲染路径）
         renderTrails(camera);
 
+        auto checkpoint3 = std::chrono::high_resolution_clock::now();
+        float trailRenderTime = std::chrono::duration<float, std::milli>(checkpoint3 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint3;
+
         // 第四遍：渲染 UI 元素（按layer排序，始终在最上层）
         renderUI();
+
+        auto checkpoint4 = std::chrono::high_resolution_clock::now();
+        float uiRenderTime = std::chrono::duration<float, std::milli>(checkpoint4 - lastCheckpoint).count();
+
+        float totalRenderTime = std::chrono::duration<float, std::milli>(checkpoint4 - renderStart).count();
+
+        // 累积渲染时间到成员变量
+        renderStats_.opaqueTime += opaqueRenderTime;
+        renderStats_.billboardTime += billboardRenderTime;
+        renderStats_.trailTime += trailRenderTime;
+        renderStats_.uiTime += uiRenderTime;
+        renderStats_.totalTime += totalRenderTime;
+        renderStats_.frameCount++;
     }
 
     // 判断实体是否是Billboard（通过类型检测）
@@ -270,9 +381,24 @@ protected:
     SceneManager *manager_ = nullptr;
 
     // UI元素容器
-    std::vector<std::unique_ptr<class UIElement>> uiElements_;
+    std::vector<std::unique_ptr<class UIElement> > uiElements_;
     ResourceManager resourceManager_;
 
+    // 渲染性能统计结构
+    struct RenderStats {
+        float opaqueTime = 0.0f;
+        float billboardTime = 0.0f;
+        float trailTime = 0.0f;
+        float uiTime = 0.0f;
+        float totalTime = 0.0f;
+        int frameCount = 0;
+
+        void reset() {
+            opaqueTime = billboardTime = trailTime = uiTime = totalTime = 0.0f;
+            frameCount = 0;
+        }
+    };
+    RenderStats renderStats_;
 
     // UI专用渲染方法
     virtual void renderUI();

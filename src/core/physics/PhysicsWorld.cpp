@@ -317,6 +317,10 @@ void PhysicsWorld::broadPhase() {
             // X 已有重叠（因为在活动集合里），再测 Y/Z
             if (overlap1D(it.minY, it.maxY, bj.minY, bj.maxY) &&
                 overlap1D(it.minZ, it.maxZ, bj.minZ, bj.maxZ)) {
+                // 优化：跳过静态-静态碰撞对
+                if (bj.c->isStatic() && it.c->isStatic()) {
+                    continue;
+                }
                 pairs_.emplace_back(bj.c, it.c);
             }
         }
