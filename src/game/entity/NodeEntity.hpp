@@ -10,15 +10,20 @@ enum class NodeState {
 
 class NodeEntity : public StaticEntity {
 public:
-    NodeTeam team = NodeTeam::Neutral;
-    NodeState state = NodeState::Idle;
-
-    float fireInterval = 2.0f;
-    float fireTimer = 0.0f;
-    float bulletSpeed = 10.0f;
-    float bulletRadius = 0.25f;
-
-    DirectX::XMFLOAT3 facingDirection{0, 0, 1};
+    float getfireinterval() const;
+    void setfireinterval(float interval);
+    float getbulletspeed() const;
+    void setbulletspeed(float speed);
+    float getbulletradius() const;
+    void setbulletradius(float radius);
+    NodeTeam getteam() const;
+    void setteam(NodeTeam team);
+    NodeState getstate() const;
+    void setstate(NodeState state);
+    DirectX::XMFLOAT3 getFacingDirection() const;
+    void setfacingdirection(const DirectX::XMFLOAT3 &direction);
+    int gethealth() const;
+    int getfirepower() const;
 
     void update(WorldContext &ctx, float dt) override;
     void setFacingDirection(const DirectX::XMFLOAT3 &worldTarget);
@@ -26,10 +31,26 @@ public:
     void fireBullet(WorldContext &ctx);
     void startFiring();
     void stopFiring();
-    void onHitByBullet(WorldContext &ctx, NodeTeam attackerTeam);
+    void resetfiretimer();
+    void onHitByBullet(WorldContext &ctx, NodeTeam attackerTeam, int power);
 
     // 判断是否需要显示指示箭头（友方且正在开火）
     bool shouldShowDirectionIndicator() const {
         return team == NodeTeam::Friendly && state == NodeState::Firing;
     }
+private:
+    float fireInterval = 2.0f;
+    float fireTimer = 0.0f;
+    int firepower = 2;
+    float bulletSpeed = 10.0f;
+    float bulletRadius = 0.25f;
+    int health = 10;
+
+public:
+
+
+private:
+    NodeTeam team = NodeTeam::Neutral;
+    NodeState state = NodeState::Idle;
+    DirectX::XMFLOAT3 facingDirection{0, 0, 1};
 };

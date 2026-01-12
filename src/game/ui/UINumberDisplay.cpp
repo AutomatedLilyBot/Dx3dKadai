@@ -15,9 +15,10 @@ void UINumberDisplay::setNaN() {
 void UINumberDisplay::render(Renderer* renderer) {
     if (!visible_ || !texture_) return;
 
-    // 1. NaN状态：只渲染单个"-"
+    // 1. NaN状态：只渲染单个"-"（居中）
     if (isNaN_) {
-        renderDigit(renderer, 11, transform_.x, transform_.y);
+        float centerX = transform_.x - digitWidth_ * 0.5f;
+        renderDigit(renderer, 11, centerX, transform_.y);
         return;
     }
 
@@ -25,9 +26,34 @@ void UINumberDisplay::render(Renderer* renderer) {
     int intPart = static_cast<int>(value_);
     int fracPart = static_cast<int>((value_ - intPart) * 100.0f + 0.5f); // 四舍五入到2位小数
 
-    float currentX = transform_.x;
+    // 3. 计算总宽度
+    float totalWidth = 0.0f;
+    int digitCount = 0;
 
-    // 3. 渲染整数部分
+    // 计算整数部分宽度
+    if (intPart == 0 && value_ < 1.0f) {
+        // <1的情况：需要"0"
+        digitCount = 1;
+    } else {
+        // 计算整数位数
+        if (intPart >= 10) digitCount = 2;
+        else digitCount = 1;
+    }
+
+    // 计算小数部分宽度
+    bool hasFraction = (fracPart > 0);
+    if (hasFraction) {
+        digitCount += 3; // 小数点 + 2位小数
+        totalWidth = digitCount * digitWidth_ + (digitCount - 1) * digitSpacing_ + digitWidth_ * 0.5f - digitSpacing_;
+        // 小数点占半宽，所以总宽度需要调整：减去0.5个digitWidth_和1个spacing，加上0.5个digitWidth_
+    } else {
+        totalWidth = digitCount * digitWidth_ + (digitCount - 1) * digitSpacing_;
+    }
+
+    // 4. 从中心位置开始，向左偏移一半宽度
+    float currentX = transform_.x - totalWidth * 0.5f;
+
+    // 5. 渲染整数部分
     if (intPart == 0 && value_ < 1.0f) {
         // <1的情况：渲染"0"
         renderDigit(renderer, 0, currentX, transform_.y);
@@ -44,8 +70,8 @@ void UINumberDisplay::render(Renderer* renderer) {
         currentX += digitWidth_ + digitSpacing_;
     }
 
-    // 4. 渲染小数部分（如果有）
-    if (fracPart > 0) {
+    // 6. 渲染小数部分（如果有）
+    if (hasFraction) {
         // 渲染小数点
         renderDigit(renderer, 10, currentX, transform_.y);
         currentX += digitWidth_ * 0.5f + digitSpacing_; // 小数点占半宽

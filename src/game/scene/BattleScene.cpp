@@ -48,7 +48,7 @@ void BattleScene::init(Renderer *renderer) {
 void BattleScene::createField() {
     std::wstring cubePath = ExeDirBattleScene() + L"\\asset\\cube.fbx";
     Model *cube = resourceManager_.getModel(cubePath);
-    const int size = 16;
+    const int size = 32;
     for (int x = 0; x < size; ++x) {
         for (int z = 0; z < size; ++z) {
             auto block = std::make_unique<BlockEntity>();
@@ -75,7 +75,7 @@ void BattleScene::createField() {
                 wall->transform.position = XMFLOAT3{(float) i - size / 2.0f, (float) layer + 0.5f, -size / 2.0f};
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
-                wall->responseType = BlockEntity::ResponseType::DestroyBullet;
+                wall->responseType = BlockEntity::ResponseType::None;
                 if (cube) wall->modelRef = cube;
                 registerEntity(*wall);
                 id2ptr_[wall->id()] = wall.get();
@@ -89,7 +89,7 @@ void BattleScene::createField() {
                 wall->transform.position = XMFLOAT3{(float) i - size / 2.0f, (float) layer + 0.5f, size / 2.0f - 1.0f};
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
-                wall->responseType = BlockEntity::ResponseType::DestroyBullet;
+                wall->responseType = BlockEntity::ResponseType::None;
                 if (cube) wall->modelRef = cube;
                 registerEntity(*wall);
                 id2ptr_[wall->id()] = wall.get();
@@ -103,7 +103,7 @@ void BattleScene::createField() {
                 wall->transform.position = XMFLOAT3{-size / 2.0f, (float) layer + 0.5f, (float) i - size / 2.0f};
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
-                wall->responseType = BlockEntity::ResponseType::DestroyBullet;
+                wall->responseType = BlockEntity::ResponseType::None;
                 if (cube) wall->modelRef = cube;
                 registerEntity(*wall);
                 id2ptr_[wall->id()] = wall.get();
@@ -117,7 +117,7 @@ void BattleScene::createField() {
                 wall->transform.position = XMFLOAT3{size / 2.0f - 1.0f, (float) layer + 0.5f, (float) i - size / 2.0f};
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
-                wall->responseType = BlockEntity::ResponseType::DestroyBullet;
+                wall->responseType = BlockEntity::ResponseType::None;
                 if (cube) wall->modelRef = cube;
                 registerEntity(*wall);
                 id2ptr_[wall->id()] = wall.get();
@@ -131,27 +131,31 @@ void BattleScene::createNodes() {
     std::wstring cylinderPath = ExeDirBattleScene() + L"\\asset\\cylinder.fbx";
     Model *cylinder = resourceManager_.getModel(cylinderPath);
 
+    // 配置参数
+    const int totalNodeCount = 16;
+    const int initialFriendlyCount = 1;
+    const int initialEnemyCount = 2;
+
+    // Field 范围（根据 createField 中的 size=32）
+    const float fieldSize = 32.0f;
+    const float minX = -fieldSize / 2.0f + 2.0f; // 留2格边距避免太靠近墙壁
+    const float maxX = fieldSize / 2.0f - 2.0f;
+    const float minZ = -fieldSize / 2.0f + 2.0f;
+    const float maxZ = fieldSize / 2.0f - 2.0f;
+    const float nodeY = 1.0f;
+
+    // 创建节点的 lambda
     auto createNodeAt = [&](const XMFLOAT3 &pos, NodeTeam team) {
         auto node = std::make_unique<NodeEntity>();
         node->setId(allocId());
         node->transform.position = pos;
-        node->team = team;
-
-        //node->modelBias.scale = XMFLOAT3{0.5f, 0.5f, 0.5f};
+        node->setteam(team);
 
         // 本体碰撞体（主碰撞体，用于物理碰撞）
         auto cap = MakeCapsuleCollider(0.5f, 1.0f);
         cap->setDebugEnabled(true);
         cap->setDebugColor(XMFLOAT4(0, 1, 0, 1));
-        node->setCollider(std::move(cap)); // ✅ 使用 setCollider 设置主碰撞体
-
-        // 发射检测触发器（前方区域，只检测不产生物理响应）
-        auto obb = MakeObbCollider(XMFLOAT3{0.3f, 0.3f, 0.3f});
-        obb->setDebugEnabled(true);
-        obb->setDebugColor(XMFLOAT4(0, 1, 1, 1));
-        obb->setPosition(XMFLOAT3(0, 0, 0.8f)); // 相对节点本体前方2.1单位
-        obb->setIsTrigger(true);
-        node->addCollider(std::move(obb)); // ✅ 使用 addCollider 添加额外碰撞体
+        node->setCollider(std::move(cap));
 
         // 初始化同步
         for (auto &c: node->colliders()) {
@@ -164,9 +168,35 @@ void BattleScene::createNodes() {
         entities_.push_back(std::move(node));
     };
 
-    createNodeAt(XMFLOAT3{0, 1, 0}, NodeTeam::Friendly);
-    createNodeAt(XMFLOAT3{2, 1, 2}, NodeTeam::Enemy);
-    createNodeAt(XMFLOAT3{-2, 1, -2}, NodeTeam::Neutral);
+    // 初始化随机数生成器
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
+    // 创建队伍分配数组
+    std::vector<NodeTeam> teamAssignments;
+    for (int i = 0; i < initialFriendlyCount; ++i) {
+        teamAssignments.push_back(NodeTeam::Friendly);
+    }
+    for (int i = 0; i < initialEnemyCount; ++i) {
+        teamAssignments.push_back(NodeTeam::Enemy);
+    }
+    for (int i = initialFriendlyCount + initialEnemyCount; i < totalNodeCount; ++i) {
+        teamAssignments.push_back(NodeTeam::Neutral);
+    }
+
+    // 打乱队伍分配
+    for (int i = teamAssignments.size() - 1; i > 0; --i) {
+        int j = std::rand() % (i + 1);
+        std::swap(teamAssignments[i], teamAssignments[j]);
+    }
+
+    // 生成随机位置并创建节点
+    for (int i = 0; i < totalNodeCount; ++i) {
+        float x = minX + static_cast<float>(std::rand()) / RAND_MAX * (maxX - minX);
+        float z = minZ + static_cast<float>(std::rand()) / RAND_MAX * (maxZ - minZ);
+
+        XMFLOAT3 pos{x, nodeY, z};
+        createNodeAt(pos, teamAssignments[i]);
+    }
 }
 
 void BattleScene::createUI() {
@@ -199,7 +229,7 @@ void BattleScene::createUI() {
     Texture *numbertex= resourceManager_.getTexture(numberpath);
 
     auto totalnum = std::make_unique<UINumberDisplay>();
-    totalnum->transform().x = 0.48f;
+    totalnum->transform().x = 0.5f;
     totalnum->transform().y = 0.025f;
     totalnum->transform().width = 0.05f;
     totalnum->setDigitSpacing(0);
@@ -211,7 +241,7 @@ void BattleScene::createUI() {
     addUIElement(std::move(totalnum));
 
     auto friendlynum = std::make_unique<UINumberDisplay>();
-    friendlynum->transform().x = 0.42f;
+    friendlynum->transform().x = 0.45f;
     friendlynum->transform().y = 0.02f;
     friendlynum->transform().width = 0.05f;
     friendlynum->setDigitSpacing(0);
@@ -224,7 +254,7 @@ void BattleScene::createUI() {
     addUIElement(std::move(friendlynum));
 
     auto enemynum = std::make_unique<UINumberDisplay>();
-    enemynum->transform().x = 0.54f;
+    enemynum->transform().x = 0.55f;
     enemynum->transform().y = 0.02f;
     enemynum->transform().width = 0.05f;
     enemynum->setDigitSpacing(0);
@@ -237,7 +267,7 @@ void BattleScene::createUI() {
     addUIElement(std::move(enemynum));
 
     auto healthnum = std::make_unique<UINumberDisplay>();
-    healthnum->transform().x = 0.48f;
+    healthnum->transform().x = 0.5f;
     healthnum->transform().y = 0.9f;
     healthnum->transform().width = 0.1f;
     healthnum->transform().height = healthnum->transform().width;
@@ -249,7 +279,7 @@ void BattleScene::createUI() {
     addUIElement(std::move(healthnum));
 
     auto powernum = std::make_unique<UINumberDisplay>();
-    powernum->transform().x = 0.37f;
+    powernum->transform().x = 0.4f;
     powernum->transform().y = 0.94f;
     powernum->transform().width = 0.05f;
     powernum->transform().height = powernum->transform().width;
@@ -261,7 +291,7 @@ void BattleScene::createUI() {
     addUIElement(std::move(powernum));
 
     auto firenum = std::make_unique<UINumberDisplay>();
-    firenum->transform().x = 0.56f;
+    firenum->transform().x = 0.6f;
     firenum->transform().y = 0.94f;
     firenum->transform().width = 0.05f;
     firenum->transform().height = firenum->transform().width;
@@ -281,6 +311,55 @@ void BattleScene::tick(float dt) {
 
     // 调用基类 tick（物理→更新→提交）
     Scene::tick(dt);
+
+    // 统计 node 数量
+    int totalNodes = 0;
+    int friendlyNodes = 0;
+    int enemyNodes = 0;
+
+    for (auto &entity : entities_) {
+        NodeEntity *node = dynamic_cast<NodeEntity *>(entity.get());
+        if (node) {
+            totalNodes++;
+            if (node->getteam() == NodeTeam::Friendly) {
+                friendlyNodes++;
+            } else if (node->getteam() == NodeTeam::Enemy) {
+                enemyNodes++;
+            }
+        }
+    }
+
+    if (enemyNodes==0) {
+        manager_->transitionTo(std::make_unique<MenuScene>());
+    }
+    else if (friendlyNodes==0) {
+        manager_->transitionTo(std::make_unique<MenuScene>());
+    }
+
+    // 更新上方显示区的数字
+    if (totalNodeCount_) totalNodeCount_->setValue(static_cast<float>(totalNodes));
+    if (friendlyNodeCount_) friendlyNodeCount_->setValue(static_cast<float>(friendlyNodes));
+    if (enemyNodeCount_) enemyNodeCount_->setValue(static_cast<float>(enemyNodes));
+
+    // 更新下方详情区的数字（显示选中 node 的属性）
+    if (selectedNodeId_ != 0) {
+        NodeEntity *selectedNode = getNodeEntity(selectedNodeId_);
+        if (selectedNode) {
+            if (selectedNodeHealth_) selectedNodeHealth_->setValue(static_cast<float>(selectedNode->gethealth()));
+            if (selectedNodePower_) selectedNodePower_->setValue(static_cast<float>(selectedNode->getfirepower()));
+            if (selectedNodeFireInterval_) selectedNodeFireInterval_->setValue(selectedNode->getfireinterval());
+        } else {
+            // 选中的节点已被销毁
+            if (selectedNodeHealth_) selectedNodeHealth_->setNaN();
+            if (selectedNodePower_) selectedNodePower_->setNaN();
+            if (selectedNodeFireInterval_) selectedNodeFireInterval_->setNaN();
+        }
+    } else {
+        // 没有选中任何节点
+        if (selectedNodeHealth_) selectedNodeHealth_->setNaN();
+        if (selectedNodePower_) selectedNodePower_->setNaN();
+        if (selectedNodeFireInterval_) selectedNodeFireInterval_->setNaN();
+    }
 }
 
 void BattleScene::handleInput(float dt, const void *window) {
@@ -290,6 +369,7 @@ void BattleScene::handleInput(float dt, const void *window) {
     // === 左键点击：选择/取消选择 Node ===
     static bool leftWasPressed = false;
     bool leftPressed = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
+    bool hPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::H);
 
     // 检测按键从未按下到按下的边缘（只在按下瞬间触发一次）
     if (leftPressed && !leftWasPressed) {
@@ -312,7 +392,7 @@ void BattleScene::handleInput(float dt, const void *window) {
         if (hitEntity != 0) {
             // 检查是否是 Node
             NodeEntity *node = getNodeEntity(hitEntity);
-            if (node && node->team == NodeTeam::Friendly) {
+            if (node && node->getteam() == NodeTeam::Friendly) {
                 // 选中友方 Node（RTS 模式下保持相机不变）
                 selectedNodeId_ = hitEntity;
                 inputManager_.selectNode(hitEntity);
@@ -353,32 +433,8 @@ void BattleScene::handleInput(float dt, const void *window) {
                 printf("[Right-click] Hit ground at (%.2f, %.2f, %.2f)\n",
                        hitPoint.x, hitPoint.y, hitPoint.z);
 
-                // 计算从 Node 到点击点的方向
-                DirectX::XMFLOAT3 nodePos = selectedNode->transform.position;
-                printf("[Right-click] Node at (%.2f, %.2f, %.2f)\n",
-                       nodePos.x, nodePos.y, nodePos.z);
-
-                DirectX::XMVECTOR dir = DirectX::XMVectorSubtract(
-                    DirectX::XMLoadFloat3(&hitPoint),
-                    DirectX::XMLoadFloat3(&nodePos)
-                );
-                dir = DirectX::XMVector3Normalize(dir);
-
-                DirectX::XMFLOAT3 facingDir;
-                DirectX::XMStoreFloat3(&facingDir, dir);
-
-                printf("[Right-click] Facing direction: (%.2f, %.2f, %.2f)\n",
-                       facingDir.x, facingDir.y, facingDir.z);
-
-                // 更新 Node 的朝向
-                selectedNode->facingDirection = facingDir;
-
-                // 更新 Node 的旋转（让 +Z 轴对准 facingDirection）
-                float yaw = atan2f(facingDir.x, facingDir.z);
-                printf("[Right-click] Yaw angle: %.2f radians (%.2f degrees)\n",
-                       yaw, yaw * 180.0f / 3.14159f);
-
-                selectedNode->transform.setRotationEuler(0, yaw, 0);
+                // 直接传入世界坐标点，让 setFacingDirection 内部计算方向
+                selectedNode->setFacingDirection(hitPoint);
                 selectedNode->startFiring();
             } else {
                 printf("[Right-click] Failed to hit ground plane\n");
@@ -386,23 +442,18 @@ void BattleScene::handleInput(float dt, const void *window) {
         }
     }
 
+    // Press H to halt fire command
+    if (hPressed && selectedNodeId()!=0) {
+        NodeEntity *selectedNode = getNodeEntity(selectedNodeId_);
+        if (selectedNode) {
+            selectedNode->resetfiretimer();
+            selectedNode->stopFiring();
+        }
+    }
+
     // === 右键长按：绕 Node 旋转相机（Orbit 模式的鼠标控制在 main.cpp 中处理）===
     // 这里不需要额外处理，processMouseMove 会在 Orbit 模式下自动生效
 
-    static bool victoryWasPressed = false;
-    static bool defeatWasPressed = false;
-    bool victoryPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::V);
-    bool defeatPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::B);
-
-    if (victoryPressed && !victoryWasPressed && manager_) {
-        manager_->transitionTo(std::make_unique<MenuScene>());
-    }
-    if (defeatPressed && !defeatWasPressed && manager_) {
-        manager_->transitionTo(std::make_unique<MenuScene>());
-    }
-
-    victoryWasPressed = victoryPressed;
-    defeatWasPressed = defeatPressed;
 }
 
 NodeEntity *BattleScene::getNodeEntity(EntityId id) {
@@ -451,7 +502,7 @@ void BattleScene::render() {
         DirectX::XMFLOAT3 nodePos = node->transform.position;
 
         // 计算箭头的朝向角度（基于 Node 的 facingDirection）
-        float yaw = atan2f(node->facingDirection.x, node->facingDirection.z);
+        float yaw = atan2f(node->getFacingDirection().x, node->getFacingDirection().z);
 
         // 构建箭头的变换矩阵
         DirectX::XMMATRIX world =
