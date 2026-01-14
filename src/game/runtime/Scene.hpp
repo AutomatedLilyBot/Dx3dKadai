@@ -252,7 +252,7 @@ public:
         }
 
         auto checkpoint1 = std::chrono::high_resolution_clock::now();
-        float opaqueRenderTime = std::chrono::duration<float, std::milli>(checkpoint1 - lastCheckpoint).count();
+        float mainRenderTime = std::chrono::duration<float, std::milli>(checkpoint1 - lastCheckpoint).count();
         lastCheckpoint = checkpoint1;
 
         // 调试模式下的碰撞体线框（单独绘制）
