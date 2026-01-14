@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <algorithm>
+#pragma execution_character_set("utf-8")
 #include <vector>
 #include <memory>
 #include <unordered_map>
@@ -24,7 +25,6 @@ class SceneManager;
 class Scene {
 public:
     Scene() = default;
-
     virtual ~Scene() = default;
 
     // 场景初始化（纯虚函数，子类实现具体场景内容）
