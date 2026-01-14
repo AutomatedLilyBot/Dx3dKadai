@@ -139,7 +139,7 @@ void BattleScene::createNodes() {
     // 配置参数
     const int totalNodeCount = 16;
     const int initialFriendlyCount = 1;
-    const int initialEnemyCount = 2;
+    const int initialEnemyCount = 1;
 
     // Field 范围（根据 createField 中的 size=32）
     const float fieldSize = 32.0f;
@@ -350,8 +350,8 @@ void BattleScene::tick(float dt) {
     if (selectedNodeId_ != 0) {
         NodeEntity *selectedNode = getNodeEntity(selectedNodeId_);
         if (selectedNode) {
-            if (selectedNodeHealth_) selectedNodeHealth_->setValue(static_cast<float>(selectedNode->gethealth()));
-            if (selectedNodePower_) selectedNodePower_->setValue(static_cast<float>(selectedNode->getfirepower()));
+            if (selectedNodeHealth_) selectedNodeHealth_->setValue(static_cast<float>(selectedNode->getHealth()));
+            if (selectedNodePower_) selectedNodePower_->setValue(static_cast<float>(selectedNode->getFirepower()));
             if (selectedNodeFireInterval_) selectedNodeFireInterval_->setValue(selectedNode->getfireinterval());
         } else {
             // 选中的节点已被销毁

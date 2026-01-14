@@ -144,11 +144,11 @@ void NodeEntity::onHitByBullet(WorldContext &ctx, NodeTeam attackerTeam, int pow
     }
 }
 
-int NodeEntity::gethealth() const {
+int NodeEntity::getHealth() const {
     return health;
 }
 
-int NodeEntity::getfirepower() const {
+int NodeEntity::getFirepower() const {
     return firePower;
 }
 
@@ -158,7 +158,7 @@ float NodeEntity::getHealthRatio() const {
 }
 
 float NodeEntity::getAlpha() const {
-    return std::clamp(getHealthRatio(), 0.2f, 1.0f);
+    return std::clamp(getHealthRatio(), 0.4f, 0.9f);
 }
 
 EntityId NodeEntity::findNearestEnemyNode(WorldContext &ctx) const {

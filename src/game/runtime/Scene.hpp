@@ -143,9 +143,9 @@ public:
         static int frameCounter = 0;
         if (++frameCounter >= 60) {
             // 计算渲染平均耗时
-            float avgOpaqueRender = renderStats_.frameCount > 0
-                                        ? renderStats_.opaqueTime / renderStats_.frameCount
-                                        : 0.0f;
+            float avgMainRender = renderStats_.frameCount > 0
+                                      ? renderStats_.mainrenderTime / renderStats_.frameCount
+                                      : 0.0f;
             float avgBillboardRender = renderStats_.frameCount > 0
                                            ? renderStats_.billboardTime / renderStats_.frameCount
                                            : 0.0f;
@@ -169,7 +169,7 @@ public:
             printf("  Submit Commands:  %.3f ms\n", submitCommandTime);
             printf("  Total Logic:      %.3f ms\n", totalTime);
             printf("\n--- Rendering (avg over %d frames) ---\n", renderStats_.frameCount);
-            printf("  Opaque Objects:   %.3f ms\n", avgOpaqueRender);
+            printf("  Main Render:   %.3f ms\n", avgMainRender);
             printf("  Billboards:       %.3f ms\n", avgBillboardRender);
             printf("  Trails:           %.3f ms\n", avgTrailRender);
             printf("  UI Render:        %.3f ms\n", avgUIRender);
@@ -284,7 +284,7 @@ public:
 
         float totalRenderTime = std::chrono::duration<float, std::milli>(checkpoint3 - renderStart).count();
 
-        renderStats_.opaqueTime += opaqueRenderTime;
+        renderStats_.mainrenderTime += mainRenderTime;
         renderStats_.billboardTime += 0.0f;
         renderStats_.trailTime += trailRenderTime;
         renderStats_.uiTime += uiRenderTime;
@@ -425,7 +425,7 @@ protected:
 
     // 渲染性能统计结构
     struct RenderStats {
-        float opaqueTime = 0.0f;
+        float mainrenderTime = 0.0f;
         float billboardTime = 0.0f;
         float trailTime = 0.0f;
         float uiTime = 0.0f;
@@ -433,7 +433,7 @@ protected:
         int frameCount = 0;
 
         void reset() {
-            opaqueTime = billboardTime = trailTime = uiTime = totalTime = 0.0f;
+            mainrenderTime = billboardTime = trailTime = uiTime = totalTime = 0.0f;
             frameCount = 0;
         }
     };
