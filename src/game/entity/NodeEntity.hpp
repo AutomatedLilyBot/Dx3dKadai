@@ -2,6 +2,7 @@
 #include "StaticEntity.hpp"
 #include "BulletEntity.hpp"
 #include <memory>
+#include <algorithm>
 
 enum class NodeState {
     Idle,
@@ -22,8 +23,13 @@ public:
     void setstate(NodeState state);
     DirectX::XMFLOAT3 getFacingDirection() const;
     void setfacingdirection(const DirectX::XMFLOAT3 &direction);
-    int gethealth() const;
-    int getfirepower() const;
+    int getHealth() const;
+    int getFirepower() const;
+    float getHealthRatio() const;
+
+    bool isTransparent() const override { return true; }
+
+    float getAlpha() const override;
 
     void update(WorldContext &ctx, float dt) override;
     void setFacingDirection(const DirectX::XMFLOAT3 &worldTarget);
@@ -52,6 +58,7 @@ private:
     float bulletSpeed = 10.0f;
     float bulletRadius = 0.25f;
     int health = 10;
+    float maxHealth = 30.0f;
 
 public:
 

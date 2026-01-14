@@ -130,7 +130,7 @@ void NodeEntity::stopFiring() {
 
 void NodeEntity::onHitByBullet(WorldContext &ctx, NodeTeam attackerTeam, int power) {
     if (team == attackerTeam) {
-        health = min(health+2*power, 30);
+        health = min(health + 2 * power, static_cast<int>(maxHealth));
         fireInterval=2.0/(1+health*0.1);
         firePower = static_cast<int>(1 + floor(health * 0.1));
     }
@@ -150,6 +150,15 @@ int NodeEntity::gethealth() const {
 
 int NodeEntity::getfirepower() const {
     return firePower;
+}
+
+float NodeEntity::getHealthRatio() const {
+    if (maxHealth <= 0.0f) return 0.0f;
+    return std::clamp(static_cast<float>(health) / maxHealth, 0.0f, 1.0f);
+}
+
+float NodeEntity::getAlpha() const {
+    return std::clamp(getHealthRatio(), 0.2f, 1.0f);
 }
 
 EntityId NodeEntity::findNearestEnemyNode(WorldContext &ctx) const {
@@ -219,4 +228,3 @@ void NodeEntity::updateAI(WorldContext &ctx, float dt) {
         }
     }
 }
-

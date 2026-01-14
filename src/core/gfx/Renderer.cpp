@@ -7,6 +7,7 @@
 #include <cstring>
 #include "../render/Drawable.hpp"
 #include <vector>
+#include <unordered_map>
 using namespace DirectX;
 
 static const D3D11_INPUT_ELEMENT_DESC kLayout[] = {
@@ -14,6 +15,18 @@ static const D3D11_INPUT_ELEMENT_DESC kLayout[] = {
     {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
     {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
     {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+};
+
+static const D3D11_INPUT_ELEMENT_DESC kInstancedLayout[] = {
+    {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    {"TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1},
+    {"TEXCOORD", 2, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 16, D3D11_INPUT_PER_INSTANCE_DATA, 1},
+    {"TEXCOORD", 3, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 32, D3D11_INPUT_PER_INSTANCE_DATA, 1},
+    {"TEXCOORD", 4, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 48, D3D11_INPUT_PER_INSTANCE_DATA, 1},
+    {"TEXCOORD", 5, DXGI_FORMAT_R32_FLOAT, 1, 64, D3D11_INPUT_PER_INSTANCE_DATA, 1},
 };
 
 static const D3D11_INPUT_ELEMENT_DESC kUiLayout[] = {
@@ -49,6 +62,15 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug) {
     }
     wprintf(L"Shader compiled successfully\n");
 
+    std::wstring instancedHlsl = ExeDir() + L"\\shader\\instanced.hlsl";
+    wprintf(L"Compiling instanced shader from: %s\n", instancedHlsl.c_str());
+    if (!m_instancedShader.compileFromFile(m_dev.device(), instancedHlsl,
+                                           kInstancedLayout, _countof(kInstancedLayout),
+                                           "VSMain", "PSMain")) {
+        wprintf(L"ERROR: Failed to compile instanced shader!\n");
+        return false;
+    }
+
     std::wstring uiHlsl = ExeDir() + L"\\shader\\ui.hlsl";
     wprintf(L"Compiling UI shader from: %s\n", uiHlsl.c_str());
     if (!m_uiShader.compileFromFile(m_dev.device(), uiHlsl, kUiLayout, _countof(kUiLayout),
@@ -61,6 +83,8 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug) {
 
     // Create constant buffers
     if (!CreateCB(m_dev.device(), sizeof(TransformCB), m_cbTransform.ReleaseAndGetAddressOf())) return false;
+    if (!CreateCB(m_dev.device(), sizeof(InstancedViewCB), m_cbInstancedView.ReleaseAndGetAddressOf()))
+        return false;
     if (!CreateCB(m_dev.device(), sizeof(LightCB), m_cbLight.ReleaseAndGetAddressOf())) return false;
     if (!CreateCB(m_dev.device(), sizeof(MaterialCB), m_cbMaterial.ReleaseAndGetAddressOf())) return false;
     if (!CreateCB(m_dev.device(), sizeof(UiCB), m_cbUi.ReleaseAndGetAddressOf())) return false;
@@ -147,6 +171,7 @@ void Renderer::shutdown() {
     m_cbMaterial.Reset();
     m_cbLight.Reset();
     m_cbTransform.Reset();
+    m_cbInstancedView.Reset();
     m_cbUi.Reset();
     m_uiVB.Reset();
     m_uiDepthState.Reset();
@@ -154,15 +179,59 @@ void Renderer::shutdown() {
     m_depthNoWriteState.Reset();
     m_alphaBlendState.Reset();
     m_noCullRasterizerState.Reset();
+    m_instanceVB.Reset();
     m_defaultTexture = Texture{};
     m_shader = ShaderProgram{};
+    m_instancedShader = ShaderProgram{};
     m_uiShader = ShaderProgram{};
     m_cube = Mesh{};
+    opaqueItems_.clear();
+    transparentItems_.clear();
+    frameMaterials_.clear();
     m_dev.shutdown();
 }
 
 void Renderer::beginFrame(float r, float g, float b, float a) { m_dev.clear(r, g, b, a); }
 void Renderer::endFrame() { m_dev.present(); }
+
+void Renderer::beginFrame() {
+    opaqueItems_.clear();
+    transparentItems_.clear();
+    frameMaterials_.clear();
+}
+
+void Renderer::submit(const DrawItem &item) {
+    DrawItem stored = item;
+    if (item.material) {
+        auto existing = std::find_if(frameMaterials_.begin(), frameMaterials_.end(),
+                                     [&](const Material &mat) {
+                                         return mat.baseColor == item.material->baseColor &&
+                                                memcmp(&mat.baseColorFactor, &item.material->baseColorFactor,
+                                                       sizeof(mat.baseColorFactor)) == 0;
+                                     });
+        if (existing != frameMaterials_.end()) {
+            stored.material = &(*existing);
+        } else {
+            frameMaterials_.push_back(*item.material);
+            stored.material = &frameMaterials_.back();
+        }
+    }
+
+    if (stored.transparent) {
+        transparentItems_.push_back(stored);
+    } else {
+        opaqueItems_.push_back(stored);
+    }
+}
+
+void Renderer::endFrame(const Camera &camera) {
+    renderOpaque(camera);
+    renderTransparent(camera);
+
+    opaqueItems_.clear();
+    transparentItems_.clear();
+    frameMaterials_.clear();
+}
 
 void Renderer::drawModel(const Model &model, const DirectX::XMMATRIX &modelTransform,
                          const DirectX::XMFLOAT4 *baseColorFactor) {
@@ -671,6 +740,187 @@ void Renderer::drawMesh(const Mesh &mesh, const DirectX::XMMATRIX &transform, co
     m_dev.context()->IASetIndexBuffer(mesh.indexBuffer(), DXGI_FORMAT_R16_UINT, 0);
     m_dev.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_dev.context()->DrawIndexed(mesh.indexCount(), 0, 0);
+
+    ID3D11ShaderResourceView *nullSRV[1] = {nullptr};
+    m_dev.context()->PSSetShaderResources(0, 1, nullSRV);
+}
+
+void Renderer::renderOpaque(const Camera &camera) {
+    if (opaqueItems_.empty()) return;
+
+    setAlphaBlending(false);
+    setDepthWrite(true);
+    setBackfaceCulling(true);
+
+    struct BatchKey {
+        const Mesh *mesh;
+        const Material *material;
+
+        bool operator==(const BatchKey &other) const {
+            return mesh == other.mesh && material == other.material;
+        }
+    };
+
+    struct BatchKeyHash {
+        size_t operator()(const BatchKey &key) const {
+            return std::hash<const void *>()(key.mesh) ^ (std::hash<const void *>()(key.material) << 1);
+        }
+    };
+
+    std::unordered_map<BatchKey, std::vector<InstanceData>, BatchKeyHash> batches;
+    batches.reserve(opaqueItems_.size());
+
+    for (const auto &item: opaqueItems_) {
+        if (!item.mesh) continue;
+        BatchKey key{item.mesh, item.material};
+        auto &instances = batches[key];
+
+        XMMATRIX world = item.transform.world();
+        XMFLOAT4X4 worldM{};
+        XMStoreFloat4x4(&worldM, world);
+
+        InstanceData instance{};
+        instance.row0 = XMFLOAT4(worldM._11, worldM._12, worldM._13, worldM._14);
+        instance.row1 = XMFLOAT4(worldM._21, worldM._22, worldM._23, worldM._24);
+        instance.row2 = XMFLOAT4(worldM._31, worldM._32, worldM._33, worldM._34);
+        instance.row3 = XMFLOAT4(worldM._41, worldM._42, worldM._43, worldM._44);
+        instance.alpha = item.alpha;
+        instances.push_back(instance);
+    }
+
+    Material defaultMaterial{};
+    for (auto &batch: batches) {
+        const Mesh *mesh = batch.first.mesh;
+        if (!mesh) continue;
+
+        const Material *material = batch.first.material ? batch.first.material : &defaultMaterial;
+        drawInstancedBatch(*mesh, *material, batch.second, camera);
+    }
+}
+
+void Renderer::renderTransparent(const Camera &camera) {
+    if (transparentItems_.empty()) return;
+
+    DirectX::XMFLOAT3 camPos = camera.getPosition();
+    std::vector<const DrawItem *> sorted;
+    sorted.reserve(transparentItems_.size());
+    for (const auto &item: transparentItems_) {
+        if (item.mesh) {
+            sorted.push_back(&item);
+        }
+    }
+
+    std::sort(sorted.begin(), sorted.end(),
+              [&camPos](const DrawItem *a, const DrawItem *b) {
+                  const auto &posA = a->transform.position;
+                  const auto &posB = b->transform.position;
+                  float distASq = (posA.x - camPos.x) * (posA.x - camPos.x) +
+                                  (posA.y - camPos.y) * (posA.y - camPos.y) +
+                                  (posA.z - camPos.z) * (posA.z - camPos.z);
+                  float distBSq = (posB.x - camPos.x) * (posB.x - camPos.x) +
+                                  (posB.y - camPos.y) * (posB.y - camPos.y) +
+                                  (posB.z - camPos.z) * (posB.z - camPos.z);
+                  return distASq > distBSq;
+              });
+
+    setAlphaBlending(true);
+    setDepthWrite(false);
+    setBackfaceCulling(false);
+
+    Material defaultMaterial{};
+    for (const auto *item: sorted) {
+        if (!item || !item->mesh) continue;
+
+        XMMATRIX world = item->transform.world();
+        XMFLOAT4X4 worldM{};
+        XMStoreFloat4x4(&worldM, world);
+
+        InstanceData instance{};
+        instance.row0 = XMFLOAT4(worldM._11, worldM._12, worldM._13, worldM._14);
+        instance.row1 = XMFLOAT4(worldM._21, worldM._22, worldM._23, worldM._24);
+        instance.row2 = XMFLOAT4(worldM._31, worldM._32, worldM._33, worldM._34);
+        instance.row3 = XMFLOAT4(worldM._41, worldM._42, worldM._43, worldM._44);
+        instance.alpha = item->alpha;
+
+        std::vector<InstanceData> instances;
+        instances.push_back(instance);
+
+        const Material *material = item->material ? item->material : &defaultMaterial;
+        drawInstancedBatch(*item->mesh, *material, instances, camera);
+    }
+
+    setAlphaBlending(false);
+    setDepthWrite(true);
+    setBackfaceCulling(true);
+}
+
+void Renderer::drawInstancedBatch(const Mesh &mesh, const Material &material,
+                                  const std::vector<InstanceData> &instances,
+                                  const Camera &camera) {
+    if (instances.empty()) return;
+
+    UINT bytes = static_cast<UINT>(instances.size() * sizeof(InstanceData));
+    if (!m_instanceVB || m_instanceVBCapacity < bytes) {
+        m_instanceVB.Reset();
+        m_instanceVBCapacity = bytes;
+        D3D11_BUFFER_DESC bd{};
+        bd.ByteWidth = m_instanceVBCapacity;
+        bd.Usage = D3D11_USAGE_DYNAMIC;
+        bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        if (FAILED(m_dev.device()->CreateBuffer(&bd, nullptr, m_instanceVB.ReleaseAndGetAddressOf()))) {
+            return;
+        }
+    }
+
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(m_dev.context()->Map(m_instanceVB.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        return;
+    }
+    memcpy(mapped.pData, instances.data(), bytes);
+    m_dev.context()->Unmap(m_instanceVB.Get(), 0);
+
+    XMMATRIX V = camera.getViewMatrix();
+    float aspect = static_cast<float>(m_dev.width()) / static_cast<float>(m_dev.height());
+    XMMATRIX P = camera.getProjectionMatrix(aspect);
+    InstancedViewCB cbView{};
+    XMStoreFloat4x4(&cbView.ViewProj, V * P);
+    m_dev.context()->UpdateSubresource(m_cbInstancedView.Get(), 0, nullptr, &cbView, 0, 0);
+
+    LightCB cbLight{};
+    cbLight.lightDir = m_lightDir;
+    cbLight.lightColor = m_lightColor;
+    cbLight.ambientColor = m_ambientColor;
+    m_dev.context()->UpdateSubresource(m_cbLight.Get(), 0, nullptr, &cbLight, 0, 0);
+
+    MaterialCB cbMaterial{};
+    cbMaterial.baseColorFactor = material.baseColorFactor;
+    m_dev.context()->UpdateSubresource(m_cbMaterial.Get(), 0, nullptr, &cbMaterial, 0, 0);
+
+    m_instancedShader.bind(m_dev.context());
+    ID3D11Buffer *cbs[] = {m_cbInstancedView.Get(), m_cbLight.Get(), m_cbMaterial.Get()};
+    m_dev.context()->VSSetConstantBuffers(0, 3, cbs);
+    m_dev.context()->PSSetConstantBuffers(0, 3, cbs);
+
+    ID3D11ShaderResourceView *srv = material.baseColor ? material.baseColor : m_defaultTexture.srv();
+    m_dev.context()->PSSetShaderResources(0, 1, &srv);
+    ID3D11SamplerState *samp = m_sampler.Get();
+    m_dev.context()->PSSetSamplers(0, 1, &samp);
+
+    ID3D11RenderTargetView *rtv = m_dev.rtv();
+    ID3D11DepthStencilView *dsv = m_dev.dsv();
+    m_dev.context()->OMSetRenderTargets(1, &rtv, dsv);
+    D3D11_VIEWPORT vp{0, 0, static_cast<FLOAT>(m_dev.width()), static_cast<FLOAT>(m_dev.height()), 0, 1};
+    m_dev.context()->RSSetViewports(1, &vp);
+
+    UINT strides[2] = {mesh.stride(), sizeof(InstanceData)};
+    UINT offsets[2] = {0, 0};
+    ID3D11Buffer *vbs[2] = {mesh.vertexBuffer(), m_instanceVB.Get()};
+    m_dev.context()->IASetInputLayout(m_instancedShader.inputLayout());
+    m_dev.context()->IASetVertexBuffers(0, 2, vbs, strides, offsets);
+    m_dev.context()->IASetIndexBuffer(mesh.indexBuffer(), DXGI_FORMAT_R16_UINT, 0);
+    m_dev.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_dev.context()->DrawIndexedInstanced(mesh.indexCount(), static_cast<UINT>(instances.size()), 0, 0, 0);
 
     ID3D11ShaderResourceView *nullSRV[1] = {nullptr};
     m_dev.context()->PSSetShaderResources(0, 1, nullSRV);

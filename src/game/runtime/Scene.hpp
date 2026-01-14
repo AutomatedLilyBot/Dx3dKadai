@@ -195,58 +195,97 @@ public:
         // 获取当前相机（从 Renderer 或子类提供）
         const Camera *camera = getCameraForRendering();
 
-        // 第一遍：渲染不透明物体（写入深度）
-        for (auto &ptr: entities_) {
-            if (!ptr) continue;
+        renderer_->beginFrame();
 
-            // 跳过 Billboard 实体，稍后单独处理
-            if (isBillboard(ptr.get())) {
-                continue;
+        auto buildTransformFromWorld = [](const DirectX::XMMATRIX &world) {
+            Transform result{};
+            DirectX::XMVECTOR scale{};
+            DirectX::XMVECTOR rotation{};
+            DirectX::XMVECTOR translation{};
+            if (DirectX::XMMatrixDecompose(&scale, &rotation, &translation, world)) {
+                DirectX::XMStoreFloat3(&result.scale, scale);
+                DirectX::XMStoreFloat4(&result.rotation, rotation);
+                DirectX::XMStoreFloat3(&result.position, translation);
+            }
+            return result;
+        };
+
+        if (camera) {
+            // 收集所有实体渲染数据，提交渲染队列
+            for (auto &ptr: entities_) {
+                if (!ptr) continue;
+
+                if (isBillboard(ptr.get())) {
+                    updateBillboardOrientation(ptr.get(), camera);
+                }
+
+                const Model *model = ptr->model();
+                if (!model || model->empty()) continue;
+
+                Transform worldTransform = buildTransformFromWorld(ptr->world());
+
+                for (const auto &drawItem: model->drawItems) {
+                    if (drawItem.meshIndex >= model->meshes.size()) continue;
+                    const auto &meshGpu = model->meshes[drawItem.meshIndex];
+                    const Texture *tex = nullptr;
+                    if (meshGpu.materialIndex >= 0 &&
+                        static_cast<size_t>(meshGpu.materialIndex) < model->materials.size()) {
+                        tex = &model->materials[meshGpu.materialIndex].diffuse;
+                    }
+
+                    Material tempMaterial = ptr->material() ? *ptr->material() : Material{};
+                    if (tex && tex->isValid()) {
+                        tempMaterial.baseColor = tex->srv();
+                    }
+
+                    Renderer::DrawItem item{};
+                    item.mesh = &meshGpu.mesh;
+                    item.material = &tempMaterial;
+                    item.transform = worldTransform;
+                    item.transparent = ptr->isTransparent();
+                    item.alpha = ptr->getAlpha();
+                    renderer_->submit(item);
+                }
             }
 
-            if (ptr->model()) {
-                renderer_->draw(*ptr);
-            }
+            renderer_->endFrame(*camera);
+        }
 
-            // 绘制碰撞体线框（调试用）
-            auto span = ptr->colliders();
-            std::vector<ColliderBase *> cols(span.begin(), span.end());
-            if (!cols.empty()) {
-                for (auto *c: cols) {
-                    renderer_->drawColliderWire(*c);
+        auto checkpoint1 = std::chrono::high_resolution_clock::now();
+        float mainRenderTime = std::chrono::duration<float, std::milli>(checkpoint1 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint1;
+
+        // 调试模式下的碰撞体线框（单独绘制）
+        if (camera) {
+            for (auto &ptr: entities_) {
+                if (!ptr) continue;
+                auto span = ptr->colliders();
+                std::vector<ColliderBase *> cols(span.begin(), span.end());
+                if (!cols.empty()) {
+                    for (auto *c: cols) {
+                        renderer_->drawColliderWire(*c);
+                    }
                 }
             }
         }
 
-        auto checkpoint1 = std::chrono::high_resolution_clock::now();
-        float opaqueRenderTime = std::chrono::duration<float, std::milli>(checkpoint1 - lastCheckpoint).count();
-        lastCheckpoint = checkpoint1;
-
-        // 第二遍：渲染 Billboard（透明物体，按距离排序）
-        renderBillboards(camera);
-
-        auto checkpoint2 = std::chrono::high_resolution_clock::now();
-        float billboardRenderTime = std::chrono::duration<float, std::milli>(checkpoint2 - lastCheckpoint).count();
-        lastCheckpoint = checkpoint2;
-
-        // 第三遍：渲染 Trail（自定义渲染路径）
+        // 渲染 Trail（自定义渲染路径）
         renderTrails(camera);
 
-        auto checkpoint3 = std::chrono::high_resolution_clock::now();
-        float trailRenderTime = std::chrono::duration<float, std::milli>(checkpoint3 - lastCheckpoint).count();
-        lastCheckpoint = checkpoint3;
+        auto checkpoint2 = std::chrono::high_resolution_clock::now();
+        float trailRenderTime = std::chrono::duration<float, std::milli>(checkpoint2 - lastCheckpoint).count();
+        lastCheckpoint = checkpoint2;
 
-        // 第四遍：渲染 UI 元素（按layer排序，始终在最上层）
+        // 渲染 UI 元素（按layer排序，始终在最上层）
         renderUI();
 
-        auto checkpoint4 = std::chrono::high_resolution_clock::now();
-        float uiRenderTime = std::chrono::duration<float, std::milli>(checkpoint4 - lastCheckpoint).count();
+        auto checkpoint3 = std::chrono::high_resolution_clock::now();
+        float uiRenderTime = std::chrono::duration<float, std::milli>(checkpoint3 - lastCheckpoint).count();
 
-        float totalRenderTime = std::chrono::duration<float, std::milli>(checkpoint4 - renderStart).count();
+        float totalRenderTime = std::chrono::duration<float, std::milli>(checkpoint3 - renderStart).count();
 
-        // 累积渲染时间到成员变量
         renderStats_.opaqueTime += opaqueRenderTime;
-        renderStats_.billboardTime += billboardRenderTime;
+        renderStats_.billboardTime += 0.0f;
         renderStats_.trailTime += trailRenderTime;
         renderStats_.uiTime += uiRenderTime;
         renderStats_.totalTime += totalRenderTime;

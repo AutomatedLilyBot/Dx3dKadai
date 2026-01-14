@@ -44,4 +44,8 @@ struct IEntity : public IDrawable {
     virtual void onCollision(WorldContext & /*ctx*/, EntityId /*other*/, TriggerPhase /*phase*/,
                              const OverlapResult & /*c*/) {
     }
+
+    virtual bool isTransparent() const { return false; }
+
+    virtual float getAlpha() const { return 1.0f; }
 };

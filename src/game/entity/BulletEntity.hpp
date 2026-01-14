@@ -45,6 +45,10 @@ public:
 
     void bounceFromSurface(const DirectX::XMFLOAT3 &normal);
 
+    bool isTransparent() const override { return false; }
+
+    float getAlpha() const override { return 1.0f; }
+
 private:
     std::unique_ptr<Model> modelOwned;
 
