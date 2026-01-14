@@ -36,7 +36,7 @@ find_package(directxtex CONFIG REQUIRED)
 # 目录根
 set(PROJ_ROOT "${CMAKE_SOURCE_DIR}")
 
-# 头文件目录：你的截图显示 include/assimp/...
+# 头文件目录
 set(ASSIMP_INCLUDE_DIR "${PROJ_ROOT}/external/assimp")
 
 # 库与 DLL（external/assimp 下）
