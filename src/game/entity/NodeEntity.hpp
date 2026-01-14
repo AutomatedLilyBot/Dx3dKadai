@@ -23,8 +23,8 @@ public:
     void setstate(NodeState state);
     DirectX::XMFLOAT3 getFacingDirection() const;
     void setfacingdirection(const DirectX::XMFLOAT3 &direction);
-    int gethealth() const;
-    int getfirepower() const;
+    int getHealth() const;
+    int getFirepower() const;
     float getHealthRatio() const;
 
     bool isTransparent() const override { return true; }
