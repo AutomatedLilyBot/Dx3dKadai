@@ -1,8 +1,8 @@
-//
+﻿//
 // Created by zyzyz on 2025/10/22.
 //
 
-#include "core/gfx/ShaderProgram.hpp"
+#include "ShaderProgram.hpp"
 
 
 static bool CompileShader(const std::string &src, const char *entry, const char *profile, ID3DBlob **blob) {
@@ -69,7 +69,7 @@ bool ShaderProgram::compileFromSource(ID3D11Device *device,
 
 
     if (FAILED(device->CreateInputLayout(layout, layoutCount, vsb->GetBufferPointer(), vsb->GetBufferSize(),
-                                         m_layout.GetAddressOf())))
+        m_layout.GetAddressOf())))
         return false;
 
 
@@ -89,7 +89,7 @@ bool ShaderProgram::compileFromFile(ID3D11Device *device, const std::wstring &hl
     if (FAILED(device->CreatePixelShader(psb->GetBufferPointer(), psb->GetBufferSize(), nullptr, m_ps.GetAddressOf())))
         return false;
     if (FAILED(device->CreateInputLayout(layout, layoutCount, vsb->GetBufferPointer(), vsb->GetBufferSize(),
-                                         m_layout.GetAddressOf())))
+        m_layout.GetAddressOf())))
         return false;
 
     return true;
