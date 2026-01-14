@@ -1,4 +1,4 @@
-#include "core/gfx/ModelLoader.hpp"
+﻿#include "ModelLoader.hpp"
 
 #include <vector>
 #include <string>
@@ -70,15 +70,15 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
     if (!device) return false;
 
     Assimp::Importer importer;
+
+    // Force file unit to meters (1.0 = 1 meter)
+    //importer.SetPropertyFloat(AI_CONFIG_GLOBAL_SCALE_FACTOR_KEY, 0.01f); // FBX通常是厘米，转换为米
+
     unsigned int flags = 0
-                         | aiProcess_Triangulate
-                         | aiProcess_JoinIdenticalVertices
-                         | aiProcess_GenSmoothNormals // Changed from GenNormals for consistent smooth normals
-                         | aiProcess_ImproveCacheLocality
-                         | aiProcess_SortByPType
-                         | aiProcess_ConvertToLeftHanded
-                         | aiProcess_FlipUVs
-                         | aiProcess_FixInfacingNormals; // Fix inverted normals
+                         | aiProcessPreset_TargetRealtime_MaxQuality
+                         | aiProcess_PreTransformVertices
+                         | aiProcess_ConvertToLeftHanded;
+    //| aiProcess_GlobalScale;  // 启用全局缩放
 
     const std::string path8 = WStringToUTF8(filepath);
     const aiScene *scene = importer.ReadFile(path8.c_str(), flags);
@@ -142,13 +142,13 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                 wprintf(L"Texture path is: %hs\n", texPath.data);
 
                 // Helper lambda to upload an aiTexture to GPU
-                auto loadAiTexture = [&](const aiTexture* tex) -> bool {
+                auto loadAiTexture = [&](const aiTexture *tex) -> bool {
                     if (!tex) return false;
                     if (tex->mHeight == 0) {
                         // Compressed texture data in tex->pcData with size tex->mWidth
-                        const void* bytes = reinterpret_cast<const void*>(tex->pcData);
+                        const void *bytes = reinterpret_cast<const void *>(tex->pcData);
                         size_t size = static_cast<size_t>(tex->mWidth);
-                        const char* hint = tex->achFormatHint[0] ? tex->achFormatHint : nullptr;
+                        const char *hint = tex->achFormatHint[0] ? tex->achFormatHint : nullptr;
                         return outTexture.loadFromMemory(device, bytes, size, hint);
                     } else {
                         // Uncompressed raw pixels in aiTexel array (RGBA 8-bit)
@@ -158,7 +158,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                         std::vector<unsigned char> rgba;
                         rgba.resize(count * 4);
                         for (size_t i = 0; i < count; ++i) {
-                            const aiTexel& t = tex->pcData[i];
+                            const aiTexel &t = tex->pcData[i];
                             rgba[i * 4 + 0] = t.r;
                             rgba[i * 4 + 1] = t.g;
                             rgba[i * 4 + 2] = t.b;
@@ -185,7 +185,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                     if (!textureLoaded && scene->mNumTextures > 0) {
                         std::string wanted = std::string(texPath.C_Str());
                         for (unsigned int i = 0; i < scene->mNumTextures && !textureLoaded; ++i) {
-                            const aiTexture* t = scene->mTextures[i];
+                            const aiTexture *t = scene->mTextures[i];
                             if (!t) continue;
                             if (t->mFilename.length > 0) {
                                 std::string tfull = t->mFilename.C_Str();
@@ -203,7 +203,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                         size_t slash = full.find_last_of("/\\");
                         std::string base = (slash == std::string::npos) ? full : full.substr(slash + 1);
                         for (unsigned int i = 0; i < scene->mNumTextures && !textureLoaded; ++i) {
-                            const aiTexture* t = scene->mTextures[i];
+                            const aiTexture *t = scene->mTextures[i];
                             if (!t) continue;
                             if (t->mFilename.length > 0) {
                                 std::string tf = t->mFilename.C_Str();
@@ -235,8 +235,7 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                 }
             }
         }
-    }
-    else {
+    } else {
         wprintf(L"Model has no texture.");
     }
 
@@ -254,6 +253,10 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
     if (!device) return false;
 
     Assimp::Importer importer;
+
+    // Force file unit to meters (1.0 = 1 meter)
+    //importer.SetPropertyFloat(AI_CONFIG_GLOBAL_SCALE_FACTOR_KEY, 100.0f); // FBX通常是厘米，转换为米
+
     unsigned int flags = 0
                          | aiProcess_Triangulate
                          | aiProcess_JoinIdenticalVertices
@@ -262,8 +265,8 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                          | aiProcess_SortByPType
                          | aiProcess_ConvertToLeftHanded
                          | aiProcess_FlipUVs
-                         | aiProcess_GlobalScale
                          | aiProcess_FixInfacingNormals;
+    //| aiProcess_GlobalScale;
 
     const std::string path8 = WStringToUTF8(filepath);
     const aiScene *scene = importer.ReadFile(path8.c_str(), flags);
@@ -372,7 +375,8 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
     std::vector<int> meshMap(scene->mNumMeshes, -1);
 
     // Recursive traversal of nodes to collect draw items and create meshes when first seen
-    std::function<void(const aiNode *, DirectX::XMMATRIX)> visit;
+    // 注意：坐标轴转换在顶点加载时手动完成（见下方顶点处理代码）
+    std::function < void(const aiNode *, DirectX::XMMATRIX) > visit;
     visit = [&](const aiNode *node, DirectX::XMMATRIX parent) {
         DirectX::XMMATRIX local = ToXM(node->mTransformation);
         DirectX::XMMATRIX global = DirectX::XMMatrixMultiply(parent, local); // parent * local
@@ -387,9 +391,11 @@ bool ModelLoader::LoadFBX(ID3D11Device *device,
                 for (unsigned int v = 0; v < aimesh->mNumVertices; ++v) {
                     VertexPNCT vp{};
                     aiVector3D p = aimesh->mVertices[v];
-                    vp.pos = DirectX::XMFLOAT3(p.x, p.y, p.z);
+                    // 手动坐标轴转换：匹配老师代码的映射方式
+                    // (x, y, z) -> (x, -z, y)
+                    vp.pos = DirectX::XMFLOAT3(p.x, -p.z, p.y);
                     aiVector3D n = aimesh->HasNormals() ? aimesh->mNormals[v] : aiVector3D(0, 1, 0);
-                    vp.normal = DirectX::XMFLOAT3(n.x, n.y, n.z);
+                    vp.normal = DirectX::XMFLOAT3(n.x, -n.z, n.y);
                     if (aimesh->HasTextureCoords(0)) {
                         aiVector3D t = aimesh->mTextureCoords[0][v];
                         vp.uv = DirectX::XMFLOAT2(t.x, t.y);
