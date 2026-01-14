@@ -6,7 +6,11 @@
 #include "Camera.hpp"
 #include "Model.hpp"
 #include "../physics/Collider.hpp"
+#include "../physics/Transform.hpp"
+#include "../render/Material.hpp"
 #include <DirectXMath.h>
+#include <deque>
+#include <vector>
 
 // Forward declare to avoid heavy include in header
 struct IDrawable;
@@ -17,9 +21,23 @@ public:
 
     void shutdown();
 
-    void beginFrame(float r = 0.1f, float g = 0.1f, float b = 0.15f, float a = 1.0f);
+    void beginFrame(float r, float g, float b, float a);
 
     void endFrame();
+
+    struct DrawItem {
+        const Mesh *mesh = nullptr;
+        const Material *material = nullptr;
+        Transform transform{};
+        float alpha = 1.0f;
+        bool transparent = false;
+    };
+
+    void beginFrame();
+
+    void submit(const DrawItem &item);
+
+    void endFrame(const Camera &camera);
 
     // Draw mesh with transform matrix and texture
     void drawMesh(const Mesh &mesh, const DirectX::XMMATRIX &transform, const Texture &texture,
@@ -114,6 +132,10 @@ private:
         DirectX::XMFLOAT4X4 WVP;
     };
 
+    struct InstancedViewCB {
+        DirectX::XMFLOAT4X4 ViewProj;
+    };
+
     struct LightCB {
         DirectX::XMFLOAT3 lightDir;
         float padding1;
@@ -140,6 +162,7 @@ private:
 
     RenderDeviceD3D11 m_dev;
     ShaderProgram m_shader;
+    ShaderProgram m_instancedShader;
     ShaderProgram m_uiShader;
     Mesh m_cube;
     Texture m_defaultTexture;
@@ -147,6 +170,7 @@ private:
     const Camera *m_externalCamera = nullptr; // 外部 Camera（优先使用）
 
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbTransform;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbInstancedView;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbLight;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbMaterial;
     Microsoft::WRL::ComPtr<ID3D11SamplerState> m_sampler;
@@ -167,7 +191,29 @@ private:
     UINT m_ribbonVBCapacity = 0;
     UINT m_ribbonIBCapacity = 0;
 
+    struct InstanceData {
+        DirectX::XMFLOAT4 row0;
+        DirectX::XMFLOAT4 row1;
+        DirectX::XMFLOAT4 row2;
+        DirectX::XMFLOAT4 row3;
+        float alpha = 1.0f;
+        float padding[3]{0.0f, 0.0f, 0.0f};
+    };
+
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_instanceVB;
+    UINT m_instanceVBCapacity = 0;
+
+    std::vector<DrawItem> opaqueItems_;
+    std::vector<DrawItem> transparentItems_;
+    std::deque<Material> frameMaterials_;
+
     DirectX::XMFLOAT3 m_lightDir{0.577f, -0.577f, 0.577f}; // Normalized diagonal
     DirectX::XMFLOAT3 m_lightColor{1.0f, 1.0f, 1.0f};
     DirectX::XMFLOAT3 m_ambientColor{0.2f, 0.2f, 0.2f};
+
+    void renderOpaque(const Camera &camera);
+    void renderTransparent(const Camera &camera);
+    void drawInstancedBatch(const Mesh &mesh, const Material &material,
+                            const std::vector<InstanceData> &instances,
+                            const Camera &camera);
 };

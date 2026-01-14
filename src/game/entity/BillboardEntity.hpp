@@ -67,6 +67,10 @@ public:
         }
     }
 
+    bool isTransparent() const override { return true; }
+
+    float getAlpha() const override { return materialData.baseColorFactor.w; }
+
     // 更新朝向矩阵（在渲染前调用）
     void updateBillboardOrientation(const Camera *camera) {
         if (!camera || orientationType == BillboardType::None) {
