@@ -334,11 +334,13 @@ void BattleScene::tick(float dt) {
         }
     }
 
-    if (enemyNodes==0) {
+    if (friendlyNodes == totalNodes) {
         manager_->transitionTo(std::make_unique<MenuScene>());
+        return;
     }
-    else if (friendlyNodes==0) {
+    if (friendlyNodes == 0) {
         manager_->transitionTo(std::make_unique<MenuScene>());
+        return;
     }
 
     // 更新上方显示区的数字
