@@ -38,6 +38,7 @@ public:
 
     // 重写 Scene 的虚函数以支持 Billboard 渲染
     const Camera *getCameraForRendering() const override { return &camera_; }
+    Camera *getCameraForShake() override { return &camera_; }
 
     bool isBillboard(IEntity *entity) const override;
 
@@ -54,15 +55,15 @@ private:
     EntityId selectedNodeId_ = 0;
 
     // 上方显示区的数字元素的指针
-    UINumberDisplay* totalNodeCount_;
-    UINumberDisplay* friendlyNodeCount_;
-    UINumberDisplay* enemyNodeCount_;
+    UINumberDisplay *totalNodeCount_;
+    UINumberDisplay *friendlyNodeCount_;
+    UINumberDisplay *enemyNodeCount_;
 
     // 下方详情区的数字元素的指针
 
-    UINumberDisplay* selectedNodeHealth_;
-    UINumberDisplay* selectedNodePower_;
-    UINumberDisplay* selectedNodeFireInterval_;
+    UINumberDisplay *selectedNodeHealth_;
+    UINumberDisplay *selectedNodePower_;
+    UINumberDisplay *selectedNodeFireInterval_;
 
     ResourceManager resourceManager_;
 

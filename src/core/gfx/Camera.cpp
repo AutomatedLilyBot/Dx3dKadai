@@ -1,5 +1,7 @@
 ﻿#include "Camera.hpp"
 
+#include <cstdlib>
+
 using namespace DirectX;
 
 Camera::Camera() {
@@ -7,6 +9,16 @@ Camera::Camera() {
 }
 
 void Camera::processKeyboard(bool forward, bool backward, bool left, bool right, bool rotateLeft, bool rotateRight, bool boost, float deltaTime) {
+    // 正在切换摄像机时不响应键盘输入
+    if (m_isSwitchingCamera) {
+        return;
+    }
+
+    // 固定摄像机不响应键盘输入
+    if (m_cameraType == CameraType::FrontView || m_cameraType == CameraType::TopView) {
+        return;
+    }
+
     if (m_mode == CameraMode::RTS) {
         // RTS 模式：WASD 在水平面上平移，QE 旋转
         float effectiveSpeed = boost ? (m_moveSpeed * m_moveSpeedBoost) : m_moveSpeed;
@@ -31,9 +43,11 @@ void Camera::processKeyboard(bool forward, bool backward, bool left, bool right,
 
         XMStoreFloat3(&m_position, pos);
 
-        // 保持固定高度和俯视角
-        m_position.y = m_rtsHeight;
-        m_pitch = m_rtsPitch;
+        // 保持固定高度和俯视角（仅在自由摄像机模式）
+        if (m_cameraType == CameraType::FreeCam) {
+            m_position.y = m_rtsHeight;
+            m_pitch = m_rtsPitch;
+        }
 
         m_targetPosition = m_position;
         updateVectors();
@@ -74,7 +88,11 @@ void Camera::updateVectors() {
 }
 
 XMMATRIX Camera::getViewMatrix() const {
+    // 应用抖动偏移
     XMVECTOR pos = XMLoadFloat3(&m_position);
+    XMVECTOR shakeOffset = XMLoadFloat3(&m_shakeOffset);
+    pos = XMVectorAdd(pos, shakeOffset);
+
     XMVECTOR fwd = XMLoadFloat3(&m_forward);
     XMVECTOR up = XMLoadFloat3(&m_up);
 
@@ -123,8 +141,39 @@ void Camera::setOrbitTarget(const DirectX::XMFLOAT3& target) {
 }
 
 void Camera::update(float dt) {
-    // 仅在过渡动画期间进行平滑插值
-    if (m_isTransitioning) {
+    // 摄像机切换动画
+    if (m_isSwitchingCamera) {
+        float lerpSpeed = dt * m_transitionSpeed;
+
+        // 插值位置
+        XMVECTOR current = XMLoadFloat3(&m_position);
+        XMVECTOR target = XMLoadFloat3(&m_targetPosition);
+        XMVECTOR newPos = XMVectorLerp(current, target, lerpSpeed);
+        XMStoreFloat3(&m_position, newPos);
+
+        // 插值欧拉角
+        m_yaw = m_yaw + (m_targetYaw - m_yaw) * lerpSpeed;
+        m_pitch = m_pitch + (m_targetPitch - m_pitch) * lerpSpeed;
+
+        // 检查是否足够接近目标
+        XMVECTOR diff = XMVectorSubtract(target, newPos);
+        float distance = XMVectorGetX(XMVector3Length(diff));
+        float angleDiff = fabsf(m_yaw - m_targetYaw) + fabsf(m_pitch - m_targetPitch);
+
+        if (distance < 0.01f && angleDiff < 0.01f) {
+            // 切换完成
+            m_position = m_targetPosition;
+            m_yaw = m_targetYaw;
+            m_pitch = m_targetPitch;
+            m_cameraType = m_targetCameraType;
+            m_isSwitchingCamera = false;
+        }
+
+        updateVectors();
+        return; // 切换过程中不执行其他逻辑
+    }
+    // 仅在过渡动画期间进行平滑插值（Focus功能）
+    else if (m_isTransitioning) {
         XMVECTOR current = XMLoadFloat3(&m_position);
         XMVECTOR target = XMLoadFloat3(&m_targetPosition);
 
@@ -141,9 +190,31 @@ void Camera::update(float dt) {
         }
     }
 
-    // Orbit 模式下始终朝向目标
-    if (m_mode == CameraMode::Orbit) {
+    // Orbit 模式下始终朝向目标（仅在非切换状态）
+    if (m_mode == CameraMode::Orbit && !m_isSwitchingCamera) {
         setLookAt(m_orbitTarget);
+    }
+
+    // 处理摄像机抖动
+    if (m_isShaking) {
+        m_shakeTimer += dt;
+
+        if (m_shakeTimer >= m_shakeDuration) {
+            // 抖动结束
+            m_isShaking = false;
+            m_shakeOffset = XMFLOAT3{0, 0, 0};
+        } else {
+            // 计算衰减系数（随时间减弱）
+            float progress = m_shakeTimer / m_shakeDuration;
+            float decay = 1.0f - progress; // 线性衰减
+
+            // 生成随机偏移量（使用简单的伪随机）
+            float randomX = (static_cast<float>(std::rand()) / RAND_MAX * 2.0f - 1.0f) * m_shakeIntensity * decay;
+            float randomY = (static_cast<float>(std::rand()) / RAND_MAX * 2.0f - 1.0f) * m_shakeIntensity * decay;
+            float randomZ = (static_cast<float>(std::rand()) / RAND_MAX * 2.0f - 1.0f) * m_shakeIntensity * decay;
+
+            m_shakeOffset = XMFLOAT3{randomX, randomY, randomZ};
+        }
     }
 }
 
@@ -173,3 +244,44 @@ void Camera::focusOnTarget(const DirectX::XMFLOAT3& target) {
 
     // pitch 和 yaw 保持不变（在 update() 中不会修改）
 }
+
+void Camera::switchToCamera(CameraType type) {
+    if (type == m_cameraType && !m_isSwitchingCamera) {
+        return; // 已经是目标摄像机，无需切换
+    }
+
+    m_targetCameraType = type;
+    m_isSwitchingCamera = true;
+
+    // 根据摄像机类型设置目标位置和朝向
+    switch (type) {
+        case CameraType::FreeCam:
+            // 自由摄像机：返回RTS默认位置
+            m_targetPosition = XMFLOAT3{0, 10.0f, -10.0f};
+            m_targetYaw = 0.0f;
+            m_targetPitch = -DirectX::XM_PIDIV4; // -45°
+            break;
+
+        case CameraType::FrontView:
+            // 前方俯视摄像机
+            m_targetPosition = XMFLOAT3{0, 12.0f, -20.0f};
+            m_targetYaw = 0.0f; // 朝向+Z
+            m_targetPitch = -DirectX::XM_PIDIV2 / 3.0f; // -30°
+            break;
+
+        case CameraType::TopView:
+            // 中央下视摄像机
+            m_targetPosition = XMFLOAT3{0, 25.0f, 0};
+            m_targetYaw = 0.0f;
+            m_targetPitch = -DirectX::XM_PIDIV2 * 0.95f; // -85°（接近正下方）
+            break;
+    }
+}
+
+void Camera::triggerShake(float intensity, float duration) {
+    m_isShaking = true;
+    m_shakeIntensity = intensity;
+    m_shakeDuration = duration;
+    m_shakeTimer = 0.0f;
+}
+

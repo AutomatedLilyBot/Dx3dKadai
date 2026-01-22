@@ -100,6 +100,32 @@ int main()
                                 }
                         }
                         fWasPressed = fPressed;
+
+                        // Camera switching: 1, 2, 3 keys
+                        static bool key1WasPressed = false;
+                        static bool key2WasPressed = false;
+                        static bool key3WasPressed = false;
+
+                        bool key1Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num1);
+                        bool key2Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num2);
+                        bool key3Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num3);
+
+                        if (key1Pressed && !key1WasPressed) {
+	                        battleScene->camera().switchToCamera(CameraType::FreeCam);
+	                        printf("Switching to Free Camera\n");
+                        }
+                        if (key2Pressed && !key2WasPressed) {
+	                        battleScene->camera().switchToCamera(CameraType::FrontView);
+	                        printf("Switching to Front View Camera\n");
+                        }
+                        if (key3Pressed && !key3WasPressed) {
+	                        battleScene->camera().switchToCamera(CameraType::TopView);
+	                        printf("Switching to Top View Camera\n");
+                        }
+
+                        key1WasPressed = key1Pressed;
+                        key2WasPressed = key2Pressed;
+                        key3WasPressed = key3Pressed;
                 } else if (auto* menuScene = dynamic_cast<MenuScene*>(sceneManager.currentScene())) {
                         if (menuScene->exitRequested()) {
                                 window.close();

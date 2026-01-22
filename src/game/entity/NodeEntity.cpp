@@ -64,13 +64,13 @@ void NodeEntity::update(WorldContext &ctx, float dt) {
     }
     switch (this->team) {
         case NodeTeam::Friendly:
-            this->materialData.baseColorFactor=XMFLOAT4(0,0,1,1);
+            this->materialData.baseColorFactor = XMFLOAT4(0, 0, 1, 1);
             break;
         case NodeTeam::Neutral:
-            this->materialData.baseColorFactor=XMFLOAT4(1,1,1,1);
+            this->materialData.baseColorFactor = XMFLOAT4(1, 1, 1, 1);
             break;
         case NodeTeam::Enemy:
-            this->materialData.baseColorFactor=XMFLOAT4(1,0,0,1);
+            this->materialData.baseColorFactor = XMFLOAT4(1, 0, 0, 1);
             break;
     }
 
@@ -94,8 +94,8 @@ void NodeEntity::setFacingDirection(const DirectX::XMFLOAT3 &worldTarget) {
 }
 
 bool NodeEntity::isFrontClear(WorldContext &ctx) const {
-    ColliderBase* trigger=colliders_.at(1).get();
-    if (!trigger||!trigger->isTrigger()) return false;
+    ColliderBase *trigger = colliders_.at(1).get();
+    if (!trigger || !trigger->isTrigger()) return false;
 
     return !ctx.physics->isAnyTriggerOverlapping(id());
 }
@@ -104,7 +104,7 @@ void NodeEntity::fireBullet(WorldContext &ctx) {
     if (!ctx.commands) return;
     ctx.commands->spawn<BulletEntity>([&](BulletEntity *b) {
         b->team = team;
-        b->shooterId = this->id();  // 设置发射者 ID，避免刚生成就碰撞
+        b->shooterId = this->id(); // 设置发射者 ID，避免刚生成就碰撞
         b->transform.position = this->colliders_.at(0)->getWorldPosition();
         b->power = firePower;
         // 使用 ResourceManager 初始化（从 WorldContext 获取）
@@ -131,15 +131,34 @@ void NodeEntity::stopFiring() {
 void NodeEntity::onHitByBullet(WorldContext &ctx, NodeTeam attackerTeam, int power) {
     if (team == attackerTeam) {
         health = min(health + 2 * power, static_cast<int>(maxHealth));
-        fireInterval=2.0/(1+health*0.1);
+        fireInterval = 2.0 / (1 + health * 0.1);
         firePower = static_cast<int>(1 + floor(health * 0.1));
-    }
-    else {
+    } else {
         health -= power;
-        if (health<=0) {
-            team=attackerTeam;
+        if (health <= 0) {
+            // 记录旧队伍用于判断是否触发抖动
+            NodeTeam oldTeam = team;
+
+            team = attackerTeam;
             stopFiring();
-            health= 1;
+            health = 1;
+
+            // 触发画面抖动的条件判断
+            // 1. 玩家的子弹导致中立/敌人节点变成玩家队伍
+            // 2. 敌人的子弹导致玩家节点变成敌人队伍
+            bool shouldShake = false;
+            if (attackerTeam == NodeTeam::Friendly && (oldTeam == NodeTeam::Neutral || oldTeam == NodeTeam::Enemy)) {
+                // 玩家占领了中立或敌人节点
+                shouldShake = true;
+            } else if (attackerTeam == NodeTeam::Enemy && oldTeam == NodeTeam::Friendly) {
+                // 敌人占领了玩家节点
+                shouldShake = true;
+            }
+
+            // 触发抖动
+            if (shouldShake && ctx.camera) {
+                ctx.camera->triggerShake(0.3f, 0.3f);
+            }
         }
     }
 }

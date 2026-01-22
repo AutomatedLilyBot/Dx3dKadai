@@ -25,6 +25,7 @@ class SceneManager;
 class Scene {
 public:
     Scene() = default;
+
     virtual ~Scene() = default;
 
     // 场景初始化（纯虚函数，子类实现具体场景内容）
@@ -90,6 +91,7 @@ public:
         ctx.commands = &cmdBuffer_; // 命令缓冲（用于生成/销毁实体）
         ctx.resources = getResourceManager(); // 资源管理器（子类提供）
         ctx.currentrenderer = renderer_;
+        ctx.camera = getCameraForShake(); // 相机指针（子类提供，用于画面抖动等效果）
 
         // 3.1) 派发碰撞/触发事件到实体
         // 遍历本帧所有碰撞事件，调用实体的 onCollision 回调
@@ -304,6 +306,11 @@ public:
         return nullptr; // 默认返回空，BattleScene 等子类会重写
     }
 
+    // 获取用于画面抖动的相机（子类重写提供具体相机）
+    virtual Camera *getCameraForShake() {
+        return nullptr; // 默认返回空，BattleScene 等子类会重写
+    }
+
     // Billboard 专用渲染方法
     virtual void renderBillboards(const Camera *camera) {
         if (!camera) return;
@@ -386,11 +393,12 @@ public:
 
     // UI管理接口
     void addUIElement(std::unique_ptr<class UIElement> element);
-    void removeUIElement(class UIElement* element);
+
+    void removeUIElement(class UIElement *element);
+
     void clearUIElements();
 
 protected:
-
     Renderer *renderer_ = nullptr; // 仅保存指针，生命周期由外部管理
     PhysicsWorld world_{};
     PhysicsQuery query_{}; // 当前帧只读物理查询视图
@@ -437,10 +445,12 @@ protected:
             frameCount = 0;
         }
     };
+
     RenderStats renderStats_;
 
     // UI专用渲染方法
     virtual void renderUI();
+
     // 子类可用的工具方法
     // 设置物理世界的碰撞/触发回调
     // 此回调在物理步进时由 PhysicsWorld 调用，用于：
@@ -602,8 +612,6 @@ protected:
     void unregisterEntity(EntityId id) {
         world_.unregisterEntity(id);
     }
-
-
 };
 
 // Trail 渲染实现（需要前向声明）
@@ -650,18 +658,18 @@ inline void Scene::renderUI() {
     if (!renderer_ || uiElements_.empty()) return;
 
     // 按layer排序（从小到大，后渲染的在前方）
-    std::vector<UIElement*> sortedUI;
-    for (auto& elem : uiElements_) {
+    std::vector<UIElement *> sortedUI;
+    for (auto &elem: uiElements_) {
         if (elem) sortedUI.push_back(elem.get());
     }
 
     std::sort(sortedUI.begin(), sortedUI.end(),
-              [](UIElement* a, UIElement* b) {
+              [](UIElement *a, UIElement *b) {
                   return a->layer() < b->layer();
               });
 
     // 渲染所有UI元素
-    for (auto* elem : sortedUI) {
+    for (auto *elem: sortedUI) {
         elem->render(renderer_);
     }
 }
@@ -673,9 +681,9 @@ inline void Scene::addUIElement(std::unique_ptr<UIElement> element) {
     }
 }
 
-inline void Scene::removeUIElement(UIElement* element) {
+inline void Scene::removeUIElement(UIElement *element) {
     auto it = std::find_if(uiElements_.begin(), uiElements_.end(),
-                           [element](const std::unique_ptr<UIElement>& ptr) {
+                           [element](const std::unique_ptr<UIElement> &ptr) {
                                return ptr.get() == element;
                            });
     if (it != uiElements_.end()) {

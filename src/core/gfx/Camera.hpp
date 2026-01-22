@@ -7,6 +7,13 @@ enum class CameraMode {
     Orbit   // 绕目标点旋转（选中 Node 后可选进入）
 };
 
+// 摄像机类型（用于多摄像机切换）
+enum class CameraType {
+    FreeCam, // 自由摄像机（可以WASD移动）
+    FrontView, // 前方俯视摄像机（固定）
+    TopView // 中央下视摄像机（固定）
+};
+
 class Camera {
 public:
     Camera();
@@ -45,6 +52,13 @@ public:
 
     // Focus on target (F key): smoothly move camera to center the target
     void focusOnTarget(const DirectX::XMFLOAT3& target);
+
+    // Camera switching
+    void switchToCamera(CameraType type); // 切换到指定摄像机类型
+    CameraType getCameraType() const { return m_cameraType; }
+
+    // Camera shake
+    void triggerShake(float intensity = 0.3f, float duration = 0.3f); // 触发画面抖动
 
 private:
     void updateVectors();
@@ -85,4 +99,18 @@ private:
     DirectX::XMFLOAT3 m_targetPosition{0, 0, -10.0f};  // 初始化与 m_position 一致
     float m_transitionSpeed = 5.0f; // lerp speed
     bool m_isTransitioning = false;  // 是否正在过渡动画
+
+    // Camera switching
+    CameraType m_cameraType = CameraType::FreeCam; // 当前摄像机类型
+    CameraType m_targetCameraType = CameraType::FreeCam; // 目标摄像机类型
+    float m_targetYaw = 0.0f; // 目标偏航角
+    float m_targetPitch = 0.0f; // 目标俯仰角
+    bool m_isSwitchingCamera = false; // 是否正在切换摄像机
+
+    // Camera shake
+    bool m_isShaking = false; // 是否正在抖动
+    float m_shakeIntensity = 0.0f; // 抖动强度
+    float m_shakeDuration = 0.0f; // 抖动持续时间
+    float m_shakeTimer = 0.0f; // 抖动计时器
+    DirectX::XMFLOAT3 m_shakeOffset{0, 0, 0}; // 当前抖动偏移量
 };
