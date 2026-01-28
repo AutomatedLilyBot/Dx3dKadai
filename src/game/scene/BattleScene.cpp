@@ -34,6 +34,35 @@ void BattleScene::init(Renderer *renderer) {
         renderer_->setCamera(&camera_);
     }
 
+    // 初始化天空盒
+    if (renderer_) {
+        // 默认使用纯白色天空盒（用于测试和确认天空盒渲染正常）
+        // 可以通过修改RGBA值来改变颜色，例如：
+        // - 天蓝色: (135, 206, 235, 255)
+        // - 浅灰色: (200, 200, 200, 255)
+        // - 纯白色: (255, 255, 255, 255)
+        if (renderer_->createSolidColorSkybox(135, 206, 235, 255)) {
+            wprintf(L"Default solid color skybox created successfully\n");
+        } else {
+            wprintf(L"Failed to create default skybox\n");
+        }
+
+        // 如果有纹理文件，可以替换为：
+        // std::wstring skyboxPath = ExeDirBattleScene() + L"\\asset\\skybox.dds";
+        // renderer_->loadSkyboxFromDDS(skyboxPath);
+        //
+        // 或者使用6个独立的图片文件：
+        // std::wstring baseDir = ExeDirBattleScene() + L"\\asset\\skybox\\";
+        // renderer_->loadSkyboxCubeMap(
+        //     baseDir + L"right.jpg",  // +X
+        //     baseDir + L"left.jpg",   // -X
+        //     baseDir + L"top.jpg",    // +Y
+        //     baseDir + L"bottom.jpg", // -Y
+        //     baseDir + L"front.jpg",  // +Z
+        //     baseDir + L"back.jpg"    // -Z
+        // );
+    }
+
     WorldParams params;
     params.gravity = XMFLOAT3{0, -9.8f, 0};
     world_.setParams(params);
@@ -46,9 +75,18 @@ void BattleScene::init(Renderer *renderer) {
 }
 
 void BattleScene::createField() {
-    std::wstring cubePath = ExeDirBattleScene() + L"\\asset\\cube.fbx";
-    Model *cube = resourceManager_.getModel(cubePath);
+    // 加载不同的模型资源
+    std::wstring groundPath = ExeDirBattleScene() + L"\\asset\\floor.fbx"; // TODO: 填入地面模型路径
+    std::wstring wallPath = ExeDirBattleScene() + L"\\asset\\edge.fbx"; // TODO: 填入墙壁模型路径
+    std::wstring cornerPath = ExeDirBattleScene() + L"\\asset\\corner.fbx"; // TODO: 填入转角模型路径
+
+    Model *groundModel = resourceManager_.getModel(groundPath);
+    Model *wallModel = resourceManager_.getModel(wallPath);
+    Model *cornerModel = resourceManager_.getModel(cornerPath);
+
     const int size = 32;
+
+    // 生成地面
     for (int x = 0; x < size; ++x) {
         for (int z = 0; z < size; ++z) {
             auto block = std::make_unique<BlockEntity>();
@@ -59,75 +97,105 @@ void BattleScene::createField() {
             block->collider()->updateDerived();
             block->collider()->setIsStatic(true); // 标记为静态以优化物理检测
             block->responseType = BlockEntity::ResponseType::None;
-            if (cube) block->modelRef = cube;
+            if (groundModel) block->modelRef = groundModel;
             registerEntity(*block);
             id2ptr_[block->id()] = block.get();
             entities_.push_back(std::move(block));
         }
     }
 
-    // walls - 四周包围
+    // 墙壁 - 四周包围（留空四角）
     for (int i = 0; i < size; ++i) {
         for (int layer = 0; layer < 2; ++layer) {
-            // 北墙 (Z-)
-            {
+            // 北墙 (Z-) - 排除两角
+            if (i != 0 && i != size - 1) {
                 auto wall = std::make_unique<BlockEntity>();
                 wall->setId(allocId());
                 wall->transform.position = XMFLOAT3{(float) i - size / 2.0f, (float) layer + 0.5f, -size / 2.0f};
+
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
-                wall->collider()->setIsStatic(true); // 标记为静态以优化物理检测
+                wall->collider()->setIsStatic(true);
                 wall->responseType = BlockEntity::ResponseType::None;
-                if (cube) wall->modelRef = cube;
+                if (wallModel) wall->modelRef = wallModel;
                 registerEntity(*wall);
                 id2ptr_[wall->id()] = wall.get();
                 entities_.push_back(std::move(wall));
             }
 
-            // 南墙 (Z+)
-            {
+            // 南墙 (Z+) - 排除两角
+            if (i != 0 && i != size - 1) {
                 auto wall = std::make_unique<BlockEntity>();
                 wall->setId(allocId());
                 wall->transform.position = XMFLOAT3{(float) i - size / 2.0f, (float) layer + 0.5f, size / 2.0f - 1.0f};
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
-                wall->collider()->setIsStatic(true); // 标记为静态以优化物理检测
+                wall->collider()->setIsStatic(true);
                 wall->responseType = BlockEntity::ResponseType::None;
-                if (cube) wall->modelRef = cube;
+                if (wallModel) wall->modelRef = wallModel;
                 registerEntity(*wall);
                 id2ptr_[wall->id()] = wall.get();
                 entities_.push_back(std::move(wall));
             }
 
-            // 西墙 (X-)
-            {
+            // 西墙 (X-) - 排除两角
+            if (i != 0 && i != size - 1) {
                 auto wall = std::make_unique<BlockEntity>();
                 wall->setId(allocId());
                 wall->transform.position = XMFLOAT3{-size / 2.0f, (float) layer + 0.5f, (float) i - size / 2.0f};
+                wall->transform.setRotationEuler(0, XM_PIDIV2, 0);
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
-                wall->collider()->setIsStatic(true); // 标记为静态以优化物理检测
+                wall->collider()->setIsStatic(true);
                 wall->responseType = BlockEntity::ResponseType::None;
-                if (cube) wall->modelRef = cube;
+                if (wallModel) wall->modelRef = wallModel;
                 registerEntity(*wall);
                 id2ptr_[wall->id()] = wall.get();
                 entities_.push_back(std::move(wall));
             }
 
-            // 东墙 (X+)
-            {
+            // 东墙 (X+) - 排除两角
+            if (i != 0 && i != size - 1) {
                 auto wall = std::make_unique<BlockEntity>();
                 wall->setId(allocId());
                 wall->transform.position = XMFLOAT3{size / 2.0f - 1.0f, (float) layer + 0.5f, (float) i - size / 2.0f};
+                wall->transform.setRotationEuler(0, XM_PIDIV2, 0);
                 wall->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
                 wall->collider()->updateDerived();
-                wall->collider()->setIsStatic(true); // 标记为静态以优化物理检测
+                wall->collider()->setIsStatic(true);
                 wall->responseType = BlockEntity::ResponseType::None;
-                if (cube) wall->modelRef = cube;
+                if (wallModel) wall->modelRef = wallModel;
                 registerEntity(*wall);
                 id2ptr_[wall->id()] = wall.get();
                 entities_.push_back(std::move(wall));
             }
+        }
+    }
+
+    // 四个转角方块 - 单独生成
+    const float cornerPositions[4][2] = {
+        {-size / 2.0f, -size / 2.0f}, // 西北角
+        {size / 2.0f - 1.0f, -size / 2.0f}, // 东北角
+        {size / 2.0f - 1.0f, size / 2.0f - 1.0f}, // 东南角
+        {-size / 2.0f, size / 2.0f - 1.0f}, // 西南角
+
+    };
+    const float cornerRatations[4] = {XM_PI, XM_PIDIV2, XM_PI, XM_PIDIV2};
+
+    for (int layer = 0; layer < 2; ++layer) {
+        for (int c = 0; c < 4; ++c) {
+            auto corner = std::make_unique<BlockEntity>();
+            corner->setId(allocId());
+            corner->transform.position = XMFLOAT3{cornerPositions[c][0], (float) layer + 0.5f, cornerPositions[c][1]};
+            corner->transform.setRotationEuler(0, cornerRatations[c], 0);
+            corner->setCollider(MakeObbCollider(XMFLOAT3{0.5f, 0.5f, 0.5f}));
+            corner->collider()->updateDerived();
+            corner->collider()->setIsStatic(true);
+            corner->responseType = BlockEntity::ResponseType::None;
+            if (cornerModel) corner->modelRef = cornerModel;
+            registerEntity(*corner);
+            id2ptr_[corner->id()] = corner.get();
+            entities_.push_back(std::move(corner));
         }
     }
 }
@@ -400,18 +468,39 @@ void BattleScene::handleInput(float dt, const void *window) {
             // 检查是否是 Node
             NodeEntity *node = getNodeEntity(hitEntity);
             if (node && node->getteam() == NodeTeam::Friendly) {
+                // 清除旧选中对象的描边标志
+                if (selectedNodeId_ != 0) {
+                    NodeEntity *oldNode = getNodeEntity(selectedNodeId_);
+                    if (oldNode) {
+                        oldNode->materialData.needsOutline = false;
+                    }
+                }
+
                 // 选中友方 Node（RTS 模式下保持相机不变）
                 selectedNodeId_ = hitEntity;
                 inputManager_.selectNode(hitEntity);
+                node->materialData.needsOutline = true; // 设置描边标志
                 printf("Selected friendly Node %llu\n", hitEntity);
             } else {
                 // 点击了其他物体，取消选择
+                if (selectedNodeId_ != 0) {
+                    NodeEntity *oldNode = getNodeEntity(selectedNodeId_);
+                    if (oldNode) {
+                        oldNode->materialData.needsOutline = false;
+                    }
+                }
                 selectedNodeId_ = 0;
                 inputManager_.deselectNode();
                 printf("Clicked non-friendly entity, deselecting\n");
             }
         } else {
             // 没有击中任何物体，取消选择
+            if (selectedNodeId_ != 0) {
+                NodeEntity *oldNode = getNodeEntity(selectedNodeId_);
+                if (oldNode) {
+                    oldNode->materialData.needsOutline = false;
+                }
+            }
             selectedNodeId_ = 0;
             inputManager_.deselectNode();
             printf("Clicked empty space, deselecting\n");
