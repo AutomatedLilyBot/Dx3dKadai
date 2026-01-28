@@ -5,12 +5,16 @@
 #include "Texture.hpp"
 #include "Camera.hpp"
 #include "Model.hpp"
+#include "Skybox.hpp"
 #include "../physics/Collider.hpp"
 #include "../physics/Transform.hpp"
 #include "../render/Material.hpp"
 #include <DirectXMath.h>
 #include <deque>
 #include <vector>
+#include <memory>
+
+#include "core/physics/PhysicsWorld.hpp"
 
 // Forward declare to avoid heavy include in header
 struct IDrawable;
@@ -121,6 +125,25 @@ public:
                     ID3D11ShaderResourceView *texture,
                     const DirectX::XMFLOAT4 &baseColor);
 
+    // Outline effect for selected entities (dual-pass method)
+    void setOutlineColor(const DirectX::XMFLOAT4 &color) { m_outlineColor = color; }
+    void setOutlineScale(float scale) { m_outlineScale = scale; } // e.g., 1.08 = 8% larger
+
+    // Skybox management
+    bool initializeSkybox();
+
+    bool loadSkyboxCubeMap(const std::wstring &rightPath, const std::wstring &leftPath,
+                           const std::wstring &topPath, const std::wstring &bottomPath,
+                           const std::wstring &frontPath, const std::wstring &backPath);
+
+    bool loadSkyboxFromDDS(const std::wstring &ddsPath);
+
+    bool createSolidColorSkybox(unsigned char r = 255, unsigned char g = 255,
+                                unsigned char b = 255, unsigned char a = 255);
+
+    void enableSkybox(bool enable) { m_skyboxEnabled = enable; }
+    bool isSkyboxEnabled() const { return m_skyboxEnabled && m_skybox && m_skybox->isValid(); }
+
 private:
     // 获取当前活跃的 Camera（优先外部，回退到内部）
     const Camera &getActiveCamera() const {
@@ -164,10 +187,15 @@ private:
     ShaderProgram m_shader;
     ShaderProgram m_instancedShader;
     ShaderProgram m_uiShader;
+    ShaderProgram m_skyboxShader;
     Mesh m_cube;
     Texture m_defaultTexture;
     Camera m_camera; // 保留作为后备，用于兼容旧代码
     const Camera *m_externalCamera = nullptr; // 外部 Camera（优先使用）
+
+    // Skybox
+    std::unique_ptr<Skybox> m_skybox;
+    bool m_skyboxEnabled = true;
 
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbTransform;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbInstancedView;
@@ -211,9 +239,19 @@ private:
     DirectX::XMFLOAT3 m_lightColor{1.0f, 1.0f, 1.0f};
     DirectX::XMFLOAT3 m_ambientColor{0.2f, 0.2f, 0.2f};
 
+    // Outline effect state (dual-pass method)
+    DirectX::XMFLOAT4 m_outlineColor{0.0f, 1.0f, 0.0f, 1.0f}; // Cyan by default
+    float m_outlineScale = 1.2f; // Scale factor for enlarged model (15% larger for visibility)
+
     void renderOpaque(const Camera &camera);
+
     void renderTransparent(const Camera &camera);
+
     void drawInstancedBatch(const Mesh &mesh, const Material &material,
                             const std::vector<InstanceData> &instances,
                             const Camera &camera);
+
+    void renderSelectedStencilMask(const Camera &camera); // Mark selected entity in stencil
+    void renderSelectedOutline(const Camera &camera); // Render outline using stencil mask
+    void renderSkybox(const Camera &camera); // Render skybox
 };

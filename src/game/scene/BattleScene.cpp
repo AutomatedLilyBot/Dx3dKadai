@@ -34,6 +34,35 @@ void BattleScene::init(Renderer *renderer) {
         renderer_->setCamera(&camera_);
     }
 
+    // 初始化天空盒
+    if (renderer_) {
+        // 默认使用纯白色天空盒（用于测试和确认天空盒渲染正常）
+        // 可以通过修改RGBA值来改变颜色，例如：
+        // - 天蓝色: (135, 206, 235, 255)
+        // - 浅灰色: (200, 200, 200, 255)
+        // - 纯白色: (255, 255, 255, 255)
+        if (renderer_->createSolidColorSkybox(135, 206, 235, 255)) {
+            wprintf(L"Default solid color skybox created successfully\n");
+        } else {
+            wprintf(L"Failed to create default skybox\n");
+        }
+
+        // 如果有纹理文件，可以替换为：
+        // std::wstring skyboxPath = ExeDirBattleScene() + L"\\asset\\skybox.dds";
+        // renderer_->loadSkyboxFromDDS(skyboxPath);
+        //
+        // 或者使用6个独立的图片文件：
+        // std::wstring baseDir = ExeDirBattleScene() + L"\\asset\\skybox\\";
+        // renderer_->loadSkyboxCubeMap(
+        //     baseDir + L"right.jpg",  // +X
+        //     baseDir + L"left.jpg",   // -X
+        //     baseDir + L"top.jpg",    // +Y
+        //     baseDir + L"bottom.jpg", // -Y
+        //     baseDir + L"front.jpg",  // +Z
+        //     baseDir + L"back.jpg"    // -Z
+        // );
+    }
+
     WorldParams params;
     params.gravity = XMFLOAT3{0, -9.8f, 0};
     world_.setParams(params);
@@ -400,18 +429,39 @@ void BattleScene::handleInput(float dt, const void *window) {
             // 检查是否是 Node
             NodeEntity *node = getNodeEntity(hitEntity);
             if (node && node->getteam() == NodeTeam::Friendly) {
+                // 清除旧选中对象的描边标志
+                if (selectedNodeId_ != 0) {
+                    NodeEntity *oldNode = getNodeEntity(selectedNodeId_);
+                    if (oldNode) {
+                        oldNode->materialData.needsOutline = false;
+                    }
+                }
+
                 // 选中友方 Node（RTS 模式下保持相机不变）
                 selectedNodeId_ = hitEntity;
                 inputManager_.selectNode(hitEntity);
+                node->materialData.needsOutline = true; // 设置描边标志
                 printf("Selected friendly Node %llu\n", hitEntity);
             } else {
                 // 点击了其他物体，取消选择
+                if (selectedNodeId_ != 0) {
+                    NodeEntity *oldNode = getNodeEntity(selectedNodeId_);
+                    if (oldNode) {
+                        oldNode->materialData.needsOutline = false;
+                    }
+                }
                 selectedNodeId_ = 0;
                 inputManager_.deselectNode();
                 printf("Clicked non-friendly entity, deselecting\n");
             }
         } else {
             // 没有击中任何物体，取消选择
+            if (selectedNodeId_ != 0) {
+                NodeEntity *oldNode = getNodeEntity(selectedNodeId_);
+                if (oldNode) {
+                    oldNode->materialData.needsOutline = false;
+                }
+            }
             selectedNodeId_ = 0;
             inputManager_.deselectNode();
             printf("Clicked empty space, deselecting\n");

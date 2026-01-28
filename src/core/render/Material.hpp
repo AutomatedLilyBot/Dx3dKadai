@@ -9,4 +9,5 @@ struct Material {
     DirectX::XMFLOAT4 baseColorFactor{1, 1, 1, 1};
     bool transparent = false; // reserved
     uint32_t techniqueKey = 0; // reserved
+    bool needsOutline = false; // Whether to render outline for this material
 };
