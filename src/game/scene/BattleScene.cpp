@@ -198,6 +198,96 @@ void BattleScene::createField() {
             entities_.push_back(std::move(corner));
         }
     }
+
+    // 中央斜坡 - 正方形圈
+    std::wstring slopePath = ExeDirBattleScene() + L"\\asset\\slope0.fbx";
+    Model *slopeModel = resourceManager_.getModel(slopePath);
+
+    const int slopeSize = size / 4; // 斜坡圈的边长
+    const float slopeY = 0.5f;      // 斜坡的Y位置
+
+    for (int i = 0; i < slopeSize; ++i) {
+        // 北斜坡 (Z-) - 排除两角，坡面朝外（朝北）
+        if (i != 0 && i != slopeSize - 1) {
+            auto slope = std::make_unique<BlockEntity>();
+            slope->setId(allocId());
+            slope->transform.position = XMFLOAT3{(float) i - slopeSize / 2.0f, slopeY, -slopeSize / 2.0f};
+            slope->transform.setRotationEuler(0.0f, 0, 0.0f); // 向北倾斜45度
+            slope->transform.scale = {1.0f, 1.0f, 1.0f};
+            // 创建倾斜的扁平OBB碰撞体
+            auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            slope->setCollider(std::move(obb));
+            slope->collider()->updateDerived();
+            slope->collider()->setIsStatic(true);
+            slope->collider()->setDebugEnabled(true);
+            slope->responseType = BlockEntity::ResponseType::None;
+            if (slopeModel) slope->modelRef = slopeModel;
+            registerEntity(*slope);
+            id2ptr_[slope->id()] = slope.get();
+            entities_.push_back(std::move(slope));
+        }
+
+        // 南斜坡 (Z+) - 排除两角，坡面朝外（朝南）
+        if (i != 0 && i != slopeSize - 1) {
+            auto slope = std::make_unique<BlockEntity>();
+            slope->setId(allocId());
+            slope->transform.position = XMFLOAT3{(float) i - slopeSize / 2.0f, slopeY, slopeSize / 2.0f - 1.0f};
+            slope->transform.setRotationEuler(0.0f, XM_PI, 0.0f);// 向南倾斜45度
+            slope->transform.scale = {1.0f, 1.0f, 1.0f};
+            auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            slope->setCollider(std::move(obb));
+            slope->collider()->updateDerived();
+            slope->collider()->setIsStatic(true);
+            slope->collider()->setDebugEnabled(true);
+            slope->responseType = BlockEntity::ResponseType::None;
+            if (slopeModel) slope->modelRef = slopeModel;
+            registerEntity(*slope);
+            id2ptr_[slope->id()] = slope.get();
+            entities_.push_back(std::move(slope));
+        }
+
+        // 西斜坡 (X-) - 排除两角，坡面朝外（朝西）
+        if (i != 0 && i != slopeSize - 1) {
+            auto slope = std::make_unique<BlockEntity>();
+            slope->setId(allocId());
+            slope->transform.position = XMFLOAT3{-slopeSize / 2.0f, slopeY, (float) i - slopeSize / 2.0f};
+            slope->transform.setRotationEuler(0.0f, XM_PIDIV2, 0.0f); // 向西倾斜45度
+            slope->transform.scale = {1.0f, 1.0f, 1.0f};
+            auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            slope->setCollider(std::move(obb));
+            slope->collider()->updateDerived();
+            slope->collider()->setIsStatic(true);
+            slope->collider()->setDebugEnabled(true);
+            slope->responseType = BlockEntity::ResponseType::None;
+            if (slopeModel) slope->modelRef = slopeModel;
+            registerEntity(*slope);
+            id2ptr_[slope->id()] = slope.get();
+            entities_.push_back(std::move(slope));
+        }
+
+        // 东斜坡 (X+) - 排除两角，坡面朝外（朝东）
+        if (i != 0 && i != slopeSize - 1) {
+            auto slope = std::make_unique<BlockEntity>();
+            slope->setId(allocId());
+            slope->transform.position = XMFLOAT3{slopeSize / 2.0f - 1.0f, slopeY, (float) i - slopeSize / 2.0f};
+            slope->transform.setRotationEuler(0.0f, -XM_PIDIV2, 0.0f);; // 向东倾斜45度
+            slope->transform.scale = {1.0f, 1.0f, 1.0f};
+            auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            slope->setCollider(std::move(obb));
+            slope->collider()->updateDerived();
+            slope->collider()->setIsStatic(true);
+            slope->collider()->setDebugEnabled(true);
+            slope->responseType = BlockEntity::ResponseType::None;
+            if (slopeModel) slope->modelRef = slopeModel;
+            registerEntity(*slope);
+            id2ptr_[slope->id()] = slope.get();
+            entities_.push_back(std::move(slope));
+        }
+    }
 }
 
 void BattleScene::createNodes() {
@@ -216,6 +306,36 @@ void BattleScene::createNodes() {
     const float minZ = -fieldSize / 2.0f + 2.0f;
     const float maxZ = fieldSize / 2.0f - 2.0f;
     const float nodeY = 1.0f;
+
+    // 斜坡区域参数（与 createField 中一致）
+    const int slopeSize = static_cast<int>(fieldSize) / 4;
+    const float slopeMinX = -slopeSize / 2.0f - 2.0f; // 斜坡区域向外扩展2格
+    const float slopeMaxX = slopeSize / 2.0f + 1.0f;
+    const float slopeMinZ = -slopeSize / 2.0f - 2.0f;
+    const float slopeMaxZ = slopeSize / 2.0f + 1.0f;
+
+    const float minNodeDistance = 2.0f; // 节点之间的最小距离
+
+    // 已生成节点的位置列表
+    std::vector<XMFLOAT3> nodePositions;
+
+    // 检查位置是否在斜坡禁区内
+    auto isInSlopeZone = [&](float x, float z) {
+        return x >= slopeMinX && x <= slopeMaxX && z >= slopeMinZ && z <= slopeMaxZ;
+    };
+
+    // 检查与已有节点的最小距离
+    auto isTooCloseToOthers = [&](float x, float z) {
+        for (const auto &existingPos : nodePositions) {
+            float dx = x - existingPos.x;
+            float dz = z - existingPos.z;
+            float dist = std::sqrt(dx * dx + dz * dz);
+            if (dist < minNodeDistance) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     // 创建节点的 lambda
     auto createNodeAt = [&](const XMFLOAT3 &pos, NodeTeam team) {
@@ -262,13 +382,25 @@ void BattleScene::createNodes() {
         std::swap(teamAssignments[i], teamAssignments[j]);
     }
 
-    // 生成随机位置并创建节点
+    // 生成随机位置并创建节点（带碰撞检测和区域排除）
     for (int i = 0; i < totalNodeCount; ++i) {
-        float x = minX + static_cast<float>(std::rand()) / RAND_MAX * (maxX - minX);
-        float z = minZ + static_cast<float>(std::rand()) / RAND_MAX * (maxZ - minZ);
+        XMFLOAT3 pos;
+        int attempts = 0;
+        const int maxAttempts = 100; // 防止无限循环
 
-        XMFLOAT3 pos{x, nodeY, z};
-        createNodeAt(pos, teamAssignments[i]);
+        // 尝试找到合法位置
+        do {
+            float x = minX + static_cast<float>(std::rand()) / RAND_MAX * (maxX - minX);
+            float z = minZ + static_cast<float>(std::rand()) / RAND_MAX * (maxZ - minZ);
+            pos = XMFLOAT3{x, nodeY, z};
+            attempts++;
+        } while ((isInSlopeZone(pos.x, pos.z) || isTooCloseToOthers(pos.x, pos.z)) && attempts < maxAttempts);
+
+        // 如果找到合法位置，创建节点并记录位置
+        if (attempts < maxAttempts) {
+            createNodeAt(pos, teamAssignments[i]);
+            nodePositions.push_back(pos);
+        }
     }
 }
 
