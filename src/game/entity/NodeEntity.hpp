@@ -66,6 +66,10 @@ public:
         return team == NodeTeam::Friendly && state == NodeState::Firing;
     }
 
+    // 演示模式相关
+    void setDemoMode(bool enabled);
+    bool isDemoMode() const { return isDemoMode_; }
+
 private:
     // AI 相关
     void updateAI(WorldContext &ctx, float dt);
@@ -93,4 +97,9 @@ private:
     float aiUpdateInterval = 3.0f; // AI 决策更新间隔
     float aiUpdateTimer = 0.0f;
     EntityId aiTargetId = 0; // 当前 AI 锁定的目标
+
+    // 演示模式
+    bool isDemoMode_ = false;
+    static constexpr float DEMO_FIRE_INTERVAL = 0.3f;
+    static constexpr int DEMO_FIRE_POWER = 3;
 };

@@ -32,9 +32,10 @@ bool Skybox::initialize(ID3D11Device *device) {
 }
 
 void Skybox::createCubeMesh(ID3D11Device *device) {
-    // Create a cube with vertices at unit distance
+    // Create a large cube to encompass the entire scene
+    // Size should be slightly smaller than camera far plane (100.0f)
     // Using inward-facing normals (by reversing winding order)
-    const float s = 1.0f;
+    const float s = 10.0f;
     SkyboxVertex vertices[] = {
         // Front face (Z+) - reversed winding
         {{-s, -s, s}}, {{s, -s, s}}, {{s, s, s}}, {{-s, s, s}},

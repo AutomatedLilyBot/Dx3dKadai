@@ -5,6 +5,7 @@
 #include "../runtime/SceneManager.hpp"
 #include "TransitionScene.hpp"
 #include "BattleScene.hpp"
+#include "HelpScene.hpp"
 
 #include <SFML/Window/Keyboard.hpp>
 #include <SFML/Window/Mouse.hpp>
@@ -40,6 +41,7 @@ void MenuScene::init(Renderer *renderer) {
     tryLoad(background_, L"menu_background.png", DirectX::XMFLOAT4{1, 1, 1, 1.0f});
     tryLoad(title_, L"menu_title.png", DirectX::XMFLOAT4{1.0f, 1.0f, 1.0f, 1.0f});
     tryLoad(startButton_, L"menu_start.png", DirectX::XMFLOAT4{1.0f, 1.0f, 1.0f, 1.0f});
+    tryLoad(helpButton_, L"menu_help.png", DirectX::XMFLOAT4{1.0f, 1.0f, 1.0f, 1.0f});
     tryLoad(exitButton_, L"menu_exit.png", DirectX::XMFLOAT4{0.5f, 0.2f, 0.2f, 1.0f});
 
     // 创建UI元素（使用新的UI系统）
@@ -56,9 +58,9 @@ void MenuScene::init(Renderer *renderer) {
     // 标题图片
     auto titleImage = std::make_unique<UIImage>();
     titleImage->transform().x = 0.25f;
-    titleImage->transform().y = 0.1f;
+    titleImage->transform().y = 0.05f;
     titleImage->transform().width = 0.5f;
-    titleImage->transform().height = 0.2f;
+    titleImage->transform().height = 0.4f;
     titleImage->setTexture(&title_);
     titleImage->setLayer(1);
     addUIElement(std::move(titleImage));
@@ -66,7 +68,7 @@ void MenuScene::init(Renderer *renderer) {
     // 开始按钮
     auto startBtn = std::make_unique<UIButton>();
     startBtn->transform().x = 0.35f;
-    startBtn->transform().y = 0.45f;
+    startBtn->transform().y = 0.4f;
     startBtn->transform().width = 0.3f;
     startBtn->transform().height = 0.15f;
     startBtn->setTexture(&startButton_);
@@ -79,10 +81,26 @@ void MenuScene::init(Renderer *renderer) {
     startButtonUI_ = startBtn.get();
     addUIElement(std::move(startBtn));
 
+    // 帮助按钮
+    auto helpBtn = std::make_unique<UIButton>();
+    helpBtn->transform().x = 0.35f;
+    helpBtn->transform().y = 0.6f;
+    helpBtn->transform().width = 0.3f;
+    helpBtn->transform().height = 0.15f;
+    helpBtn->setTexture(&helpButton_);
+    helpBtn->setLayer(2);
+    helpBtn->setInputManager(&inputManager_);
+    helpBtn->setScreenSize(1280, 720); // TODO: 获取实际屏幕尺寸
+    helpBtn->setOnClick([this]() {
+        helpRequested_ = true;
+    });
+    helpButtonUI_ = helpBtn.get();
+    addUIElement(std::move(helpBtn));
+
     // 退出按钮
     auto exitBtn = std::make_unique<UIButton>();
     exitBtn->transform().x = 0.35f;
-    exitBtn->transform().y = 0.65f;
+    exitBtn->transform().y = 0.8f;
     exitBtn->transform().width = 0.3f;
     exitBtn->transform().height = 0.15f;
     exitBtn->setTexture(&exitButton_);
@@ -106,6 +124,11 @@ void MenuScene::tick(float dt) {
     if (startRequested_ && manager_) {
         startRequested_ = false;
         manager_->transitionTo(std::make_unique<BattleScene>());
+    }
+
+    if (helpRequested_ && manager_) {
+        helpRequested_ = false;
+        manager_->transitionTo(std::make_unique<HelpScene>());
     }
 }
 

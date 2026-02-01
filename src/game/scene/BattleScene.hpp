@@ -54,6 +54,11 @@ private:
     // 当前选中的 Node（用于控制）
     EntityId selectedNodeId_ = 0;
 
+    // 演示模式
+    bool isDemoMode_ = false;
+    void enterDemoMode();
+    void exitDemoMode();
+
     // 上方显示区的数字元素的指针
     UINumberDisplay *totalNodeCount_;
     UINumberDisplay *friendlyNodeCount_;

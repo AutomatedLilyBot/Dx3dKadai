@@ -74,8 +74,12 @@ void NodeEntity::update(WorldContext &ctx, float dt) {
             break;
     }
 
+    // 演示模式下所有节点都启用AI
+    if (isDemoMode_) {
+        updateAI(ctx, dt);
+    }
     // Enemy AI
-    if (team == NodeTeam::Enemy) {
+    else if (team == NodeTeam::Enemy) {
         updateAI(ctx, dt);
     }
 }
@@ -129,8 +133,13 @@ void NodeEntity::stopFiring() {
 }
 
 void NodeEntity::onHitByBullet(WorldContext &ctx, NodeTeam attackerTeam, int power) {
+    // 演示模式下忽略血量和队伍操作
+    if (isDemoMode_) {
+        return;
+    }
+
     if (team == attackerTeam) {
-        health = min(health + 2 * power, static_cast<int>(maxHealth));
+        health = min(health + 3 * power, static_cast<int>(maxHealth));
         fireInterval = 2.0 / (1 + health * 0.1);
         firePower = static_cast<int>(1 + floor(health * 0.1));
     } else {
@@ -245,5 +254,14 @@ void NodeEntity::updateAI(WorldContext &ctx, float dt) {
             stopFiring();
             aiTargetId = 0;
         }
+    }
+}
+
+void NodeEntity::setDemoMode(bool enabled) {
+    isDemoMode_ = enabled;
+    if (enabled) {
+        // 设置演示模式的固定参数
+        fireInterval = DEMO_FIRE_INTERVAL;
+        firePower = DEMO_FIRE_POWER;
     }
 }

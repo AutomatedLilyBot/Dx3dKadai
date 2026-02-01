@@ -220,6 +220,7 @@ void Renderer::submit(const DrawItem &item) {
         auto existing = std::find_if(frameMaterials_.begin(), frameMaterials_.end(),
                                      [&](const Material &mat) {
                                          return mat.baseColor == item.material->baseColor &&
+                                                mat.needsOutline == item.material->needsOutline &&
                                                 memcmp(&mat.baseColorFactor, &item.material->baseColorFactor,
                                                        sizeof(mat.baseColorFactor)) == 0;
                                      });
@@ -1276,6 +1277,7 @@ void Renderer::renderSelectedOutline(const Camera &camera) {
         drawInstancedBatch(*item.mesh, outlineMaterial, instances, camera);
     }
 
+    //wprintf(L"Rendered %d outlined objects\n", outlineCount);
     // Restore state
     m_dev.context()->OMSetDepthStencilState(nullptr, 0);
     if (outlineDepthState) outlineDepthState->Release();

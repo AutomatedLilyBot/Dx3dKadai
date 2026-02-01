@@ -1,12 +1,15 @@
 ﻿#include "BattleScene.hpp"
 #include "MenuScene.hpp"
 #include "TransitionScene.hpp"
+#include "WinScene.hpp"
+#include "LoseScene.hpp"
 #include "../entity/BillboardEntity.hpp"
 #include "../entity/ExplosionEffect.hpp"
 
 #include <corecrt_startup.h>
 #include <windows.h>
 #include <string>
+#include <ctime>
 
 #include "../runtime/SceneManager.hpp"
 
@@ -41,26 +44,32 @@ void BattleScene::init(Renderer *renderer) {
         // - 天蓝色: (135, 206, 235, 255)
         // - 浅灰色: (200, 200, 200, 255)
         // - 纯白色: (255, 255, 255, 255)
-        if (renderer_->createSolidColorSkybox(135, 206, 235, 255)) {
-            wprintf(L"Default solid color skybox created successfully\n");
-        } else {
-            wprintf(L"Failed to create default skybox\n");
-        }
+        // if (renderer_->createSolidColorSkybox(135, 206, 235, 255)) {
+        //     wprintf(L"Default solid color skybox created successfully\n");
+        // } else {
+        //     wprintf(L"Failed to create default skybox\n");
+        // }
 
         // 如果有纹理文件，可以替换为：
         // std::wstring skyboxPath = ExeDirBattleScene() + L"\\asset\\skybox.dds";
         // renderer_->loadSkyboxFromDDS(skyboxPath);
         //
         // 或者使用6个独立的图片文件：
-        // std::wstring baseDir = ExeDirBattleScene() + L"\\asset\\skybox\\";
-        // renderer_->loadSkyboxCubeMap(
-        //     baseDir + L"right.jpg",  // +X
-        //     baseDir + L"left.jpg",   // -X
-        //     baseDir + L"top.jpg",    // +Y
-        //     baseDir + L"bottom.jpg", // -Y
-        //     baseDir + L"front.jpg",  // +Z
-        //     baseDir + L"back.jpg"    // -Z
-        // );
+        std::wstring baseDir = ExeDirBattleScene() + L"\\asset\\skybox\\";
+        if (renderer_->loadSkyboxCubeMap(
+            baseDir + L"right.png",  // +X
+            baseDir + L"left.png",   // -X
+            baseDir + L"top.png",    // +Y
+            baseDir + L"bottom.png", // -Y
+            baseDir + L"front.png",  // +Z
+            baseDir + L"back.png"    // -Z
+        )) {
+            wprintf(L"Skybox cube map loaded successfully\n");
+        } else {
+            wprintf(L"Failed to load skybox cube map from: %s\n", baseDir.c_str());
+            // 如果加载失败，使用备用纯色天空盒
+            renderer_->createSolidColorSkybox(255, 255, 255, 255);
+        }
     }
 
     WorldParams params;
@@ -297,7 +306,7 @@ void BattleScene::createNodes() {
     // 配置参数
     const int totalNodeCount = 16;
     const int initialFriendlyCount = 1;
-    const int initialEnemyCount = 1;
+    const int initialEnemyCount = 0;
 
     // Field 范围（根据 createField 中的 size=32）
     const float fieldSize = 32.0f;
@@ -534,13 +543,36 @@ void BattleScene::tick(float dt) {
         }
     }
 
-    if (friendlyNodes == totalNodes) {
-        manager_->transitionTo(std::make_unique<MenuScene>());
-        return;
+    // 演示模式下不触发胜负判定
+    if (!isDemoMode_) {
+        if (friendlyNodes == totalNodes) {
+            manager_->transitionTo(std::make_unique<WinScene>());
+            return;
+        }
+        if (friendlyNodes == 0) {
+            manager_->transitionTo(std::make_unique<LoseScene>());
+            return;
+        }
     }
-    if (friendlyNodes == 0) {
-        manager_->transitionTo(std::make_unique<MenuScene>());
-        return;
+
+    // Ensure only the selected friendly node has outline; clear invalid selection.
+    if (selectedNodeId_ != 0) {
+        NodeEntity *selectedNode = getNodeEntity(selectedNodeId_);
+        if (!selectedNode || selectedNode->getteam() != NodeTeam::Friendly) {
+            if (selectedNode) {
+                selectedNode->materialData.needsOutline = false;
+            }
+            selectedNodeId_ = 0;
+            inputManager_.deselectNode();
+        }
+    }
+    for (auto &entity : entities_) {
+        NodeEntity *node = dynamic_cast<NodeEntity *>(entity.get());
+        if (!node) continue;
+        bool shouldOutline = (node->id() == selectedNodeId_ && node->getteam() == NodeTeam::Friendly);
+        if (node->materialData.needsOutline != shouldOutline) {
+            node->materialData.needsOutline = shouldOutline;
+        }
     }
 
     // 更新上方显示区的数字
@@ -572,6 +604,30 @@ void BattleScene::tick(float dt) {
 void BattleScene::handleInput(float dt, const void *window) {
     // 更新 InputManager 状态（右键长按/短按检测）
     inputManager_.updateMouseButtons(dt);
+
+    // === V键：演示模式切换 ===
+    static bool vWasPressed = false;
+    bool vPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::V);
+    if (vPressed && !vWasPressed) {
+        if (isDemoMode_) {
+            // 退出演示模式，重置场景
+            exitDemoMode();
+        } else {
+            // 进入演示模式
+            enterDemoMode();
+        }
+    }
+    vWasPressed = vPressed;
+
+    // === ESC键：返回主菜单 ===
+    static bool escWasPressed = false;
+    bool escPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape);
+    if (escPressed && !escWasPressed) {
+        if (manager_) {
+            manager_->transitionTo(std::make_unique<MenuScene>());
+        }
+    }
+    escWasPressed = escPressed;
 
     // === 左键点击：选择/取消选择 Node ===
     static bool leftWasPressed = false;
@@ -757,4 +813,54 @@ void BattleScene::render() {
     renderer_->setAlphaBlending(false);
     renderer_->setDepthWrite(true);
     renderer_->setBackfaceCulling(true);
+}
+
+void BattleScene::enterDemoMode() {
+    isDemoMode_ = true;
+
+    // 收集所有node实体
+    std::vector<NodeEntity*> nodes;
+    for (auto &entity : entities_) {
+        NodeEntity *node = dynamic_cast<NodeEntity *>(entity.get());
+        if (node) {
+            nodes.push_back(node);
+        }
+    }
+
+    // 随机分配队伍 - 一半friendly，一半enemy
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    std::vector<int> indices;
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        indices.push_back(static_cast<int>(i));
+    }
+    // 打乱顺序
+    for (size_t i = indices.size() - 1; i > 0; --i) {
+        size_t j = std::rand() % (i + 1);
+        std::swap(indices[i], indices[j]);
+    }
+
+    // 前一半设为friendly，后一半设为enemy
+    size_t halfCount = nodes.size() / 2;
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        NodeEntity *node = nodes[indices[i]];
+
+        // 设置演示模式
+        node->setDemoMode(true);
+
+        // 分配队伍
+        if (i < halfCount) {
+            node->setteam(NodeTeam::Friendly);
+        } else {
+            node->setteam(NodeTeam::Enemy);
+        }
+    }
+
+    printf("Entered demo mode with %zu nodes\n", nodes.size());
+}
+
+void BattleScene::exitDemoMode() {
+    // 通过TransitionScene重置场景
+    if (manager_) {
+        manager_->transitionTo(std::make_unique<BattleScene>());
+    }
 }

@@ -38,8 +38,8 @@ void Camera::processKeyboard(bool forward, bool backward, bool left, bool right,
         if (left)     pos = XMVectorSubtract(pos, XMVectorScale(rgt, velocity));
 
         // QE 旋转
-        if (rotateLeft)  m_yaw += m_rotateSpeed * deltaTime;
-        if (rotateRight) m_yaw -= m_rotateSpeed * deltaTime;
+        if (rotateLeft)  m_yaw -= m_rotateSpeed * deltaTime;
+        if (rotateRight) m_yaw += m_rotateSpeed * deltaTime;
 
         XMStoreFloat3(&m_position, pos);
 

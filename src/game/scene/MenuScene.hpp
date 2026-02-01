@@ -20,16 +20,19 @@ private:
     Texture background_;
     Texture title_;
     Texture startButton_;
+    Texture helpButton_;
     Texture exitButton_;
 
     // UI元素指针（用于回调访问，生命周期由Scene管理）
     UIButton* startButtonUI_ = nullptr;
+    UIButton* helpButtonUI_ = nullptr;
     UIButton* exitButtonUI_ = nullptr;
 
     // 输入管理器
     InputManager inputManager_;
 
     bool startRequested_ = false;
+    bool helpRequested_ = false;
     bool exitRequested_ = false;
     bool enterWasPressed_ = false;
     bool escWasPressed_ = false;

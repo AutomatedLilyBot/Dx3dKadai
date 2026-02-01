@@ -17,4 +17,5 @@ private:
     float timer_ = 0.0f;
     float duration_ = 1.0f;
     Texture loadingTexture_;
+    Texture bgTexture_;
 };
