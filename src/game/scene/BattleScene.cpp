@@ -225,7 +225,7 @@ void BattleScene::createField() {
             slope->transform.scale = {1.0f, 1.0f, 1.0f};
             // 创建倾斜的扁平OBB碰撞体
             auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
-            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 6.0f, 0.0f, 0.0f});
             slope->setCollider(std::move(obb));
             slope->collider()->updateDerived();
             slope->collider()->setIsStatic(true);
@@ -245,7 +245,7 @@ void BattleScene::createField() {
             slope->transform.setRotationEuler(0.0f, XM_PI, 0.0f);// 向南倾斜45度
             slope->transform.scale = {1.0f, 1.0f, 1.0f};
             auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
-            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 6.0f, 0.0f, 0.0f});
             slope->setCollider(std::move(obb));
             slope->collider()->updateDerived();
             slope->collider()->setIsStatic(true);
@@ -265,7 +265,7 @@ void BattleScene::createField() {
             slope->transform.setRotationEuler(0.0f, XM_PIDIV2, 0.0f); // 向西倾斜45度
             slope->transform.scale = {1.0f, 1.0f, 1.0f};
             auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
-            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 6.0f, 0.0f, 0.0f});
             slope->setCollider(std::move(obb));
             slope->collider()->updateDerived();
             slope->collider()->setIsStatic(true);
@@ -285,7 +285,7 @@ void BattleScene::createField() {
             slope->transform.setRotationEuler(0.0f, -XM_PIDIV2, 0.0f);; // 向东倾斜45度
             slope->transform.scale = {1.0f, 1.0f, 1.0f};
             auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
-            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 6.0f, 0.0f, 0.0f});
             slope->setCollider(std::move(obb));
             slope->collider()->updateDerived();
             slope->collider()->setIsStatic(true);
@@ -355,7 +355,7 @@ void BattleScene::createNodes() {
 
         // 本体碰撞体（主碰撞体，用于物理碰撞）
         auto cap = MakeCapsuleCollider(0.5f, 1.0f);
-        cap->setDebugEnabled(true);
+        cap->setDebugEnabled(false);
         cap->setDebugColor(XMFLOAT4(0, 1, 0, 1));
         node->setCollider(std::move(cap));
 
