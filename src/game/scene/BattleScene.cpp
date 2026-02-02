@@ -213,7 +213,7 @@ void BattleScene::createField() {
     Model *slopeModel = resourceManager_.getModel(slopePath);
 
     const int slopeSize = size / 4; // 斜坡圈的边长
-    const float slopeY = 0.5f;      // 斜坡的Y位置
+    const float slopeY = 0.5f; // 斜坡的Y位置
 
     for (int i = 0; i < slopeSize; ++i) {
         // 北斜坡 (Z-) - 排除两角，坡面朝外（朝北）
@@ -225,7 +225,7 @@ void BattleScene::createField() {
             slope->transform.scale = {1.0f, 1.0f, 1.0f};
             // 创建倾斜的扁平OBB碰撞体
             auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
-            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 6.0f, 0.0f, 0.0f});
             slope->setCollider(std::move(obb));
             slope->collider()->updateDerived();
             slope->collider()->setIsStatic(true);
@@ -242,10 +242,10 @@ void BattleScene::createField() {
             auto slope = std::make_unique<BlockEntity>();
             slope->setId(allocId());
             slope->transform.position = XMFLOAT3{(float) i - slopeSize / 2.0f, slopeY, slopeSize / 2.0f - 1.0f};
-            slope->transform.setRotationEuler(0.0f, XM_PI, 0.0f);// 向南倾斜45度
+            slope->transform.setRotationEuler(0.0f, XM_PI, 0.0f); // 向南倾斜45度
             slope->transform.scale = {1.0f, 1.0f, 1.0f};
             auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
-            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 6.0f, 0.0f, 0.0f});
             slope->setCollider(std::move(obb));
             slope->collider()->updateDerived();
             slope->collider()->setIsStatic(true);
@@ -265,7 +265,7 @@ void BattleScene::createField() {
             slope->transform.setRotationEuler(0.0f, XM_PIDIV2, 0.0f); // 向西倾斜45度
             slope->transform.scale = {1.0f, 1.0f, 1.0f};
             auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
-            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 6.0f, 0.0f, 0.0f});
             slope->setCollider(std::move(obb));
             slope->collider()->updateDerived();
             slope->collider()->setIsStatic(true);
@@ -285,7 +285,7 @@ void BattleScene::createField() {
             slope->transform.setRotationEuler(0.0f, -XM_PIDIV2, 0.0f);; // 向东倾斜45度
             slope->transform.scale = {1.0f, 1.0f, 1.0f};
             auto obb = MakeObbCollider(XMFLOAT3{0.5f, 0.1f, 0.8f});
-            obb->setRotationEuler(XMFLOAT3{-XM_PI / 4.0f, 0.0f, 0.0f});
+            obb->setRotationEuler(XMFLOAT3{-XM_PI / 6.0f, 0.0f, 0.0f});
             slope->setCollider(std::move(obb));
             slope->collider()->updateDerived();
             slope->collider()->setIsStatic(true);
@@ -305,8 +305,8 @@ void BattleScene::createNodes() {
 
     // 配置参数
     const int totalNodeCount = 16;
-    const int initialFriendlyCount = 1;
-    const int initialEnemyCount = 0;
+    const int initialFriendlyCount = 2;
+    const int initialEnemyCount = 1;
 
     // Field 范围（根据 createField 中的 size=32）
     const float fieldSize = 32.0f;
@@ -335,7 +335,7 @@ void BattleScene::createNodes() {
 
     // 检查与已有节点的最小距离
     auto isTooCloseToOthers = [&](float x, float z) {
-        for (const auto &existingPos : nodePositions) {
+        for (const auto &existingPos: nodePositions) {
             float dx = x - existingPos.x;
             float dz = z - existingPos.z;
             float dist = std::sqrt(dx * dx + dz * dz);
@@ -355,7 +355,7 @@ void BattleScene::createNodes() {
 
         // 本体碰撞体（主碰撞体，用于物理碰撞）
         auto cap = MakeCapsuleCollider(0.5f, 1.0f);
-        cap->setDebugEnabled(true);
+        cap->setDebugEnabled(false);
         cap->setDebugColor(XMFLOAT4(0, 1, 0, 1));
         node->setCollider(std::move(cap));
 

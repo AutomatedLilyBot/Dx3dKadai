@@ -1,7 +1,7 @@
-﻿// golfgame.cpp : Defines the entry point for the application.
+﻿// NodeWars.cpp: Defines the entry point for the application.
 //
 
-#include "golfgame.h"
+#include "NodeWars.h"
 #include "src/core/gfx/Renderer.hpp"
 #include "src/core/gfx/ModelLoader.hpp"
 #include <SFML/Window.hpp>
@@ -10,8 +10,6 @@
 #include <chrono>
 #include <random>
 #include <DirectXMath.h>
-#include "src/core/gfx/Model.hpp"
-#include "src/game/world/Field.hpp"
 #include "src/game/entity/StaticEntity.hpp"
 #include "src/core/physics/Transform.hpp"
 #include "src/game/scene/BattleScene.hpp"

@@ -61,9 +61,24 @@ void Camera::processKeyboard(bool forward, bool backward, bool left, bool right,
 // RTS 模式不需要鼠标视角控制，已移除 processMouseMove
 
 void Camera::processMouseScroll(float delta) {
-    m_moveSpeed += delta * 0.5f;
-    if (m_moveSpeed < 0.5f) m_moveSpeed = 0.5f;
-    if (m_moveSpeed > 50.0f) m_moveSpeed = 50.0f;
+    // 在 FreeCam 模式下，滚轮调整摄像机高度
+    if (m_mode == CameraMode::RTS && m_cameraType == CameraType::FreeCam) {
+        m_rtsHeight -= delta * m_heightAdjustSpeed;
+
+        // 限制高度范围
+        if (m_rtsHeight < m_freeCamMinHeight) m_rtsHeight = m_freeCamMinHeight;
+        if (m_rtsHeight > m_freeCamMaxHeight) m_rtsHeight = m_freeCamMaxHeight;
+
+        // 立即应用高度变化
+        m_position.y = m_rtsHeight;
+        m_targetPosition.y = m_rtsHeight;
+    }
+    else {
+        // 其他模式下，滚轮调整移动速度
+        m_moveSpeed += delta * 0.5f;
+        if (m_moveSpeed < 0.5f) m_moveSpeed = 0.5f;
+        if (m_moveSpeed > 50.0f) m_moveSpeed = 50.0f;
+    }
 }
 
 void Camera::updateVectors() {

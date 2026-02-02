@@ -89,6 +89,11 @@ private:
     float m_rtsPitch = -DirectX::XM_PIDIV4; // 固定俯视角度（-45°）
     float m_rotateSpeed = 1.0f;              // QE 旋转速度
 
+    // FreeCam height adjustment parameters
+    float m_freeCamMinHeight = 4.0f;       // 最低高度
+    float m_freeCamMaxHeight = 20.0f;      // 最高高度
+    float m_heightAdjustSpeed = 1.0f;      // 高度调整速度
+
     // Orbit mode parameters
     DirectX::XMFLOAT3 m_orbitTarget{0, 0, 0};
     float m_orbitDistance = 5.0f;

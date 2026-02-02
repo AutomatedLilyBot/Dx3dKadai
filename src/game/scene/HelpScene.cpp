@@ -34,7 +34,7 @@ void HelpScene::init(Renderer *renderer) {
         }
     };
 
-    tryLoad(helpImage_, L"help_content.png", DirectX::XMFLOAT4{0.9f, 0.9f, 0.9f, 1.0f});
+    tryLoad(helpImage_, L"help_content.png", DirectX::XMFLOAT4{0.8f, 0.8f, 0.8f, 1.0f});
 
     // 帮助内容图片（全屏）
     auto helpImg = std::make_unique<UIImage>();
