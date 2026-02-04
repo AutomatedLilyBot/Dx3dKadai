@@ -117,12 +117,20 @@ XMMATRIX Camera::getViewMatrix() const {
 }
 
 XMMATRIX Camera::getProjectionMatrix(float aspectRatio) const {
-    // 使用透视投影矩阵
-    // fov: 视野角度（弧度）
-    // aspectRatio: 宽高比（width/height）
-    // nearPlane: 近裁剪面距离
-    // farPlane: 远裁剪面距离
-    return XMMatrixPerspectiveFovLH(m_fov, aspectRatio, m_nearPlane, m_farPlane);
+    if (m_isOrthographic) {
+        // 正交投影（用于小地图等）
+        float halfWidth = m_orthographicSize;
+        float halfHeight = m_orthographicSize / aspectRatio;
+        return XMMatrixOrthographicLH(
+            halfWidth * 2.0f,
+            halfHeight * 2.0f,
+            m_nearPlane,
+            m_farPlane
+        );
+    } else {
+        // 透视投影（正常相机）
+        return XMMatrixPerspectiveFovLH(m_fov, aspectRatio, m_nearPlane, m_farPlane);
+    }
 }
 
 void Camera::setLookAt(const DirectX::XMFLOAT3 &target) {

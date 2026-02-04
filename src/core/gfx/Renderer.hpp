@@ -6,6 +6,7 @@
 #include "Camera.hpp"
 #include "Model.hpp"
 #include "Skybox.hpp"
+#include "Minimap.hpp"
 #include "../physics/Collider.hpp"
 #include "../physics/Transform.hpp"
 #include "../render/Material.hpp"
@@ -144,6 +145,16 @@ public:
     void enableSkybox(bool enable) { m_skyboxEnabled = enable; }
     bool isSkyboxEnabled() const { return m_skyboxEnabled && m_skybox && m_skybox->isValid(); }
 
+    // Minimap management
+    bool initializeMinimap(UINT width = 256, UINT height = 256);
+
+    void resizeMinimap(UINT width, UINT height);
+
+    void setMinimapFieldBounds(const DirectX::XMFLOAT3 &center, float size);
+
+    void enableMinimap(bool enable) { m_minimapEnabled = enable; }
+    bool isMinimapEnabled() const { return m_minimapEnabled && m_minimap && m_minimap->isValid(); }
+
 private:
     // 获取当前活跃的 Camera（优先外部，回退到内部）
     const Camera &getActiveCamera() const {
@@ -197,6 +208,12 @@ private:
     std::unique_ptr<Skybox> m_skybox;
     bool m_skyboxEnabled = true;
 
+    // Minimap
+    std::unique_ptr<Minimap> m_minimap;
+    Camera m_minimapCamera; // 小地图专用相机
+    bool m_minimapEnabled = true;
+    bool m_useActiveRenderTargets = false;
+
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbTransform;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbInstancedView;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_cbLight;
@@ -243,15 +260,17 @@ private:
     DirectX::XMFLOAT4 m_outlineColor{0.0f, 1.0f, 0.0f, 1.0f}; // Cyan by default
     float m_outlineScale = 1.2f; // Scale factor for enlarged model (15% larger for visibility)
 
-    void renderOpaque(const Camera &camera);
+    void renderOpaque(const Camera &camera, float aspectRatio = 0.0f);
 
-    void renderTransparent(const Camera &camera);
+    void renderTransparent(const Camera &camera, float aspectRatio = 0.0f);
 
     void drawInstancedBatch(const Mesh &mesh, const Material &material,
                             const std::vector<InstanceData> &instances,
-                            const Camera &camera);
+                            const Camera &camera, float aspectRatio = 0.0f);
 
     void renderSelectedStencilMask(const Camera &camera); // Mark selected entity in stencil
     void renderSelectedOutline(const Camera &camera); // Render outline using stencil mask
     void renderSkybox(const Camera &camera); // Render skybox
+    void renderMinimap(); // Render minimap to texture
+    void drawMinimapToScreen(); // Draw minimap texture to screen
 };

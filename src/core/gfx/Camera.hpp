@@ -60,6 +60,12 @@ public:
     // Camera shake
     void triggerShake(float intensity = 0.3f, float duration = 0.3f); // 触发画面抖动
 
+    // Orthographic projection (for minimap)
+    void setOrthographic(bool ortho) { m_isOrthographic = ortho; }
+    void setOrthographicSize(float size) { m_orthographicSize = size; }
+    bool isOrthographic() const { return m_isOrthographic; }
+    float getOrthographicSize() const { return m_orthographicSize; }
+
 private:
     void updateVectors();
 
@@ -118,4 +124,8 @@ private:
     float m_shakeDuration = 0.0f; // 抖动持续时间
     float m_shakeTimer = 0.0f; // 抖动计时器
     DirectX::XMFLOAT3 m_shakeOffset{0, 0, 0}; // 当前抖动偏移量
+
+    // Orthographic projection
+    bool m_isOrthographic = false;
+    float m_orthographicSize = 10.0f; // 正交投影半宽度
 };

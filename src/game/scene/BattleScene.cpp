@@ -72,6 +72,18 @@ void BattleScene::init(Renderer *renderer) {
         }
     }
 
+    // 初始化小地图
+    if (renderer_) {
+        renderer_->initializeMinimap(256, 256); // 256x256 分辨率
+
+        // 设置小地图观察范围（场地中心和大小）
+        const float fieldSize = 32.0f;
+        DirectX::XMFLOAT3 fieldCenter{0.0f, 0.0f, 0.0f};
+        renderer_->setMinimapFieldBounds(fieldCenter, fieldSize);
+
+        wprintf(L"Minimap initialized (256x256)\n");
+    }
+
     WorldParams params;
     params.gravity = XMFLOAT3{0, -9.8f, 0};
     world_.setParams(params);

@@ -199,6 +199,7 @@ void Renderer::shutdown() {
     m_skyboxShader = ShaderProgram{};
     m_cube = Mesh{};
     m_skybox.reset();
+    m_minimap.reset();
     opaqueItems_.clear();
     transparentItems_.clear();
     frameMaterials_.clear();
@@ -240,17 +241,41 @@ void Renderer::submit(const DrawItem &item) {
 }
 
 void Renderer::endFrame(const Camera &camera) {
-    // Rendering order:
+    // ===== Pass 1: Render main scene to back buffer =====
+    // Note: Main RT should already be set and cleared by Scene::beginFrame()
+    // But we ensure viewport is correct
+    D3D11_VIEWPORT mainViewport{
+        0, 0,
+        static_cast<FLOAT>(m_dev.width()),
+        static_cast<FLOAT>(m_dev.height()),
+        0.0f, 1.0f
+    };
+    m_dev.context()->RSSetViewports(1, &mainViewport);
+
+    // Main scene rendering order:
     // 0. Render skybox first (at far plane, depth test LESS_EQUAL, no depth write)
     // 1. Mark selected entity in stencil buffer (write 1 to stencil)
     // 2. Normal rendering (opaque + transparent)
     // 3. Render enlarged outline only where stencil == 0 (outside entity)
-
     renderSkybox(camera);
     renderSelectedStencilMask(camera);
     renderOpaque(camera);
     renderTransparent(camera);
     renderSelectedOutline(camera);
+
+    // ===== Pass 2: Render minimap to texture =====
+    if (isMinimapEnabled()) {
+        renderMinimap();
+
+        // Restore main render target and viewport after minimap rendering
+        ID3D11RenderTargetView *mainRTV = m_dev.rtv();
+        ID3D11DepthStencilView *mainDSV = m_dev.dsv();
+        m_dev.context()->OMSetRenderTargets(1, &mainRTV, mainDSV);
+        m_dev.context()->RSSetViewports(1, &mainViewport);
+
+        // Draw minimap sprite immediately (on top of main scene)
+        drawMinimapToScreen();
+    }
 
     opaqueItems_.clear();
     transparentItems_.clear();
@@ -769,7 +794,7 @@ void Renderer::drawMesh(const Mesh &mesh, const DirectX::XMMATRIX &transform, co
     m_dev.context()->PSSetShaderResources(0, 1, nullSRV);
 }
 
-void Renderer::renderOpaque(const Camera &camera) {
+void Renderer::renderOpaque(const Camera &camera, float aspectRatio) {
     if (opaqueItems_.empty()) return;
 
     setAlphaBlending(false);
@@ -818,11 +843,11 @@ void Renderer::renderOpaque(const Camera &camera) {
         if (!mesh) continue;
 
         const Material *material = batch.first.material ? batch.first.material : &defaultMaterial;
-        drawInstancedBatch(*mesh, *material, batch.second, camera);
+        drawInstancedBatch(*mesh, *material, batch.second, camera, aspectRatio);
     }
 }
 
-void Renderer::renderTransparent(const Camera &camera) {
+void Renderer::renderTransparent(const Camera &camera, float aspectRatio) {
     if (transparentItems_.empty()) return;
 
     DirectX::XMFLOAT3 camPos = camera.getPosition();
@@ -870,7 +895,7 @@ void Renderer::renderTransparent(const Camera &camera) {
         instances.push_back(instance);
 
         const Material *material = item->material ? item->material : &defaultMaterial;
-        drawInstancedBatch(*item->mesh, *material, instances, camera);
+        drawInstancedBatch(*item->mesh, *material, instances, camera, aspectRatio);
     }
 
     setAlphaBlending(false);
@@ -880,7 +905,7 @@ void Renderer::renderTransparent(const Camera &camera) {
 
 void Renderer::drawInstancedBatch(const Mesh &mesh, const Material &material,
                                   const std::vector<InstanceData> &instances,
-                                  const Camera &camera) {
+                                  const Camera &camera, float aspectRatio) {
     if (instances.empty()) return;
 
     UINT bytes = static_cast<UINT>(instances.size() * sizeof(InstanceData));
@@ -905,7 +930,10 @@ void Renderer::drawInstancedBatch(const Mesh &mesh, const Material &material,
     m_dev.context()->Unmap(m_instanceVB.Get(), 0);
 
     XMMATRIX V = camera.getViewMatrix();
-    float aspect = static_cast<float>(m_dev.width()) / static_cast<float>(m_dev.height());
+    // Use provided aspect ratio, or calculate from main window if not provided
+    float aspect = (aspectRatio > 0.0f)
+                       ? aspectRatio
+                       : static_cast<float>(m_dev.width()) / static_cast<float>(m_dev.height());
     XMMATRIX P = camera.getProjectionMatrix(aspect);
     InstancedViewCB cbView{};
     XMStoreFloat4x4(&cbView.ViewProj, V * P);
@@ -931,11 +959,13 @@ void Renderer::drawInstancedBatch(const Mesh &mesh, const Material &material,
     ID3D11SamplerState *samp = m_sampler.Get();
     m_dev.context()->PSSetSamplers(0, 1, &samp);
 
-    ID3D11RenderTargetView *rtv = m_dev.rtv();
-    ID3D11DepthStencilView *dsv = m_dev.dsv();
-    m_dev.context()->OMSetRenderTargets(1, &rtv, dsv);
-    D3D11_VIEWPORT vp{0, 0, static_cast<FLOAT>(m_dev.width()), static_cast<FLOAT>(m_dev.height()), 0, 1};
-    m_dev.context()->RSSetViewports(1, &vp);
+    if (!m_useActiveRenderTargets) {
+        ID3D11RenderTargetView *rtv = m_dev.rtv();
+        ID3D11DepthStencilView *dsv = m_dev.dsv();
+        m_dev.context()->OMSetRenderTargets(1, &rtv, dsv);
+        D3D11_VIEWPORT vp{0, 0, static_cast<FLOAT>(m_dev.width()), static_cast<FLOAT>(m_dev.height()), 0, 1};
+        m_dev.context()->RSSetViewports(1, &vp);
+    }
 
     UINT strides[2] = {mesh.stride(), sizeof(InstanceData)};
     UINT offsets[2] = {0, 0};
@@ -1340,4 +1370,84 @@ void Renderer::renderSkybox(const Camera &camera) {
 
     float aspect = static_cast<float>(m_dev.width()) / static_cast<float>(m_dev.height());
     m_skybox->render(m_dev.context(), camera, m_skyboxShader, aspect, m_dev.width(), m_dev.height());
+}
+
+// ==== Minimap Management ====
+
+bool Renderer::initializeMinimap(UINT width, UINT height) {
+    if (!m_dev.device()) return false;
+
+    m_minimap = std::make_unique<Minimap>();
+    if (!m_minimap->initialize(m_dev.device(), width, height)) {
+        wprintf(L"Failed to initialize minimap\n");
+        m_minimap.reset();
+        return false;
+    }
+
+    wprintf(L"Minimap initialized successfully (%dx%d)\n", width, height);
+    return true;
+}
+
+void Renderer::resizeMinimap(UINT width, UINT height) {
+    if (!m_minimap) return;
+    m_minimap->resize(m_dev.device(), width, height);
+}
+
+void Renderer::setMinimapFieldBounds(const DirectX::XMFLOAT3 &center, float size) {
+    if (!m_minimap) return;
+    m_minimap->setupCamera(m_minimapCamera, center, size);
+}
+
+void Renderer::renderMinimap() {
+    if (!m_minimap || !m_minimap->isValid()) return;
+
+    m_useActiveRenderTargets = true;
+
+    // Switch to minimap render target
+    ID3D11RenderTargetView *minimapRTV = m_minimap->getRTV();
+    ID3D11DepthStencilView *minimapDSV = m_minimap->getDSV();
+    m_dev.context()->OMSetRenderTargets(1, &minimapRTV, minimapDSV);
+
+    // Clear minimap (dark gray background)
+    m_minimap->clear(m_dev.context(), 0.1f, 0.1f, 0.1f, 1.0f);
+
+    // Set minimap viewport
+    D3D11_VIEWPORT minimapViewport{
+        0, 0,
+        static_cast<FLOAT>(m_minimap->getWidth()),
+        static_cast<FLOAT>(m_minimap->getHeight()),
+        0.0f, 1.0f
+    };
+    m_dev.context()->RSSetViewports(1, &minimapViewport);
+
+    // Render scene using minimap camera (no skybox, no outline)
+    // Use aspect ratio of 1.0 since minimap is square (256x256)
+    float minimapAspect = static_cast<float>(m_minimap->getWidth()) / static_cast<float>(m_minimap->getHeight());
+    renderOpaque(m_minimapCamera, minimapAspect);
+    renderTransparent(m_minimapCamera, minimapAspect);
+
+    m_useActiveRenderTargets = false;
+}
+
+void Renderer::drawMinimapToScreen() {
+    if (!m_minimap || !m_minimap->isValid()) return;
+
+    // Minimap displayed in top-right corner
+    // Screen normalized coordinates [0,1]
+    float minimapScreenSize = 0.2f; // 20% of screen
+    float margin = 0.02f; // 2% margin
+
+    float x = 1.0f - minimapScreenSize - margin; // Right side
+    float y = margin; // Top
+    float width = minimapScreenSize;
+    float height = minimapScreenSize;
+
+    // Draw minimap texture using UI shader
+    drawUiQuad(
+        x, y, width, height,
+        m_minimap->getSRV(),
+        DirectX::XMFLOAT4{1.0f, 1.0f, 1.0f, 1.0f}, // No tint
+        1.0f, // No emissive
+        0.0f, 0.0f, 1.0f, 1.0f  // Full UV
+    );
 }
