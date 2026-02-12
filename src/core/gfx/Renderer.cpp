@@ -1146,7 +1146,7 @@ void Renderer::renderSelectedStencilMask(const Camera &camera) {
     // Create stencil state: always pass, write 1 to stencil
     D3D11_DEPTH_STENCIL_DESC stencilDesc{};
     stencilDesc.DepthEnable = TRUE;
-    stencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    stencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
     stencilDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
     stencilDesc.StencilEnable = TRUE;
     stencilDesc.StencilReadMask = 0xFF;
@@ -1440,7 +1440,7 @@ void Renderer::drawMinimapToScreen() {
     float x = 1.0f - minimapScreenSize - margin; // Right side
     float y = margin; // Top
     float width = minimapScreenSize;
-    float height = minimapScreenSize;
+    float height = minimapScreenSize * 16.0 / 9;
 
     // Draw minimap texture using UI shader
     drawUiQuad(

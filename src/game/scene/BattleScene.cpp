@@ -772,11 +772,9 @@ void BattleScene::updateBillboardOrientation(IEntity *entity, const Camera *came
     }
 }
 
-// 重写 render 方法以绘制 Node 指示箭头
-void BattleScene::render() {
-    // 先调用基类的 render 方法绘制所有实体
-    Scene::render();
-
+// 在 UI 之前绘制 Node 指示箭头
+void BattleScene::renderWorldOverlay(const Camera *camera) {
+    (void) camera;
     if (!renderer_) return;
 
     // 设置透明渲染状态（与 Billboard 相同）
@@ -794,16 +792,13 @@ void BattleScene::render() {
             continue;
         }
 
-        // 计算 Node 在世界空间中的位置（正下方）
-        DirectX::XMFLOAT3 nodePos = node->transform.position;
-
         // 计算箭头的朝向角度（基于 Node 的 facingDirection）
         float yaw = atan2f(node->getFacingDirection().x, node->getFacingDirection().z);
 
         // 构建箭头的变换矩阵
         DirectX::XMMATRIX world =
                     DirectX::XMMatrixScaling(2.0f, 2.0f, 2.0f) *
-                    DirectX::XMMatrixRotationY(yaw)*
+                    DirectX::XMMatrixRotationY(yaw) *
                     DirectX::XMMatrixTranslation(
                         node->transform.position.x,
                         node->transform.position.y + 0.05f,

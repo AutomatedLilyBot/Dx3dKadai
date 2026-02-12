@@ -278,6 +278,9 @@ public:
         float trailRenderTime = std::chrono::duration<float, std::milli>(checkpoint2 - lastCheckpoint).count();
         lastCheckpoint = checkpoint2;
 
+        // 额外的世界层叠加渲染（在 UI 之前）
+        renderWorldOverlay(camera);
+
         // 渲染 UI 元素（按layer排序，始终在最上层）
         renderUI();
 
@@ -368,6 +371,9 @@ public:
 
     // Trail 专用渲染方法
     virtual void renderTrails(const Camera *camera);
+
+    // 世界空间叠加渲染（例如指示箭头），在 UI 之前
+    virtual void renderWorldOverlay(const Camera *camera) { (void) camera; }
 
     // 判断实体是否是 Trail（通过类型检测）
     virtual bool isTrail(IEntity *entity) const;

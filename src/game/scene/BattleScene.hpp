@@ -44,8 +44,8 @@ public:
 
     void updateBillboardOrientation(IEntity *entity, const Camera *camera) override;
 
-    // 重写 render 方法以绘制 Node 指示箭头
-    void render() override;
+    // 在 UI 之前绘制 Node 指示箭头
+    void renderWorldOverlay(const Camera *camera) override;
 
 private:
     Camera camera_; // 场景管理的 Camera
@@ -56,7 +56,9 @@ private:
 
     // 演示模式
     bool isDemoMode_ = false;
+
     void enterDemoMode();
+
     void exitDemoMode();
 
     // 上方显示区的数字元素的指针
