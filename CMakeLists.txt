@@ -1,4 +1,4 @@
-﻿# CMakeList.txt : CMake project for golfgame
+﻿# CMakeList.txt : CMake project for NodeWars
 cmake_minimum_required (VERSION 3.11)
 
 # ----- vcpkg toolchain integration -----
@@ -23,7 +23,7 @@ if (MSVC)
 endif()
 
 
-project ("golfgame")
+project("NodeWars")
 
 # ----- 头文件路径（你项目的 include/）-----
 include_directories(include)
@@ -71,14 +71,14 @@ file(GLOB_RECURSE HEADERS "src/*.hpp" "src/*.h")
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.c")
 
 # ----- 可执行文件 -----
-add_executable(golfgame
-        "golfgame.cpp" "golfgame.h"
+add_executable(NodeWars
+        "NodeWars.cpp" "NodeWars.h"
         ${HEADERS} ${SOURCES}
 )
 
 # C++ 标准
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET golfgame PROPERTY CXX_STANDARD 20)
+  set_property(TARGET NodeWars PROPERTY CXX_STANDARD 20)
 endif()
 
 # MSVC UTF-8
@@ -87,7 +87,7 @@ if(MSVC)
 endif()
 
 # ----- 链接依赖 -----
-target_link_libraries(golfgame PRIVATE
+target_link_libraries(NodeWars PRIVATE
         SFML::Network
         SFML::Graphics
         SFML::Window
@@ -96,20 +96,20 @@ target_link_libraries(golfgame PRIVATE
 )
 
 # 运行时复制 Assimp 对应配置的 DLL 到可执行文件目录
-add_custom_command(TARGET golfgame POST_BUILD
+add_custom_command(TARGET NodeWars POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<IF:$<CONFIG:Debug>,${ASSIMP_DEBUG_DLL},${ASSIMP_RELEASE_DLL}>"
-        "$<TARGET_FILE_DIR:golfgame>"
+        "$<TARGET_FILE_DIR:NodeWars>"
 )
 
 # ----- 资源复制 -----
-add_custom_command(TARGET golfgame POST_BUILD
+add_custom_command(TARGET NodeWars POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/shader
-        $<TARGET_FILE_DIR:golfgame>/shader
+        $<TARGET_FILE_DIR:NodeWars>/shader
 )
-add_custom_command(TARGET golfgame POST_BUILD
+add_custom_command(TARGET NodeWars POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/asset
-        $<TARGET_FILE_DIR:golfgame>/asset
+        $<TARGET_FILE_DIR:NodeWars>/asset
 )

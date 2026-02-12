@@ -79,6 +79,18 @@ bool Renderer::initialize(HWND hwnd, unsigned w, unsigned h, bool debug) {
         return false;
     }
 
+    // Compile skybox shader
+    static const D3D11_INPUT_ELEMENT_DESC kSkyboxLayout[] = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    };
+    std::wstring skyboxHlsl = ExeDir() + L"\\shader\\skybox.hlsl";
+    wprintf(L"Compiling Skybox shader from: %s\n", skyboxHlsl.c_str());
+    if (!m_skyboxShader.compileFromFile(m_dev.device(), skyboxHlsl, kSkyboxLayout, _countof(kSkyboxLayout),
+                                        "VSMain", "PSMain")) {
+        wprintf(L"WARNING: Failed to compile skybox shader - skybox will be disabled\n");
+        // Don't fail initialization if skybox shader fails
+    }
+
     if (!m_cube.createCube(m_dev.device(), 1.0f)) return false;
 
     // Create constant buffers
@@ -184,7 +196,9 @@ void Renderer::shutdown() {
     m_shader = ShaderProgram{};
     m_instancedShader = ShaderProgram{};
     m_uiShader = ShaderProgram{};
+    m_skyboxShader = ShaderProgram{};
     m_cube = Mesh{};
+    m_skybox.reset();
     opaqueItems_.clear();
     transparentItems_.clear();
     frameMaterials_.clear();
@@ -206,6 +220,7 @@ void Renderer::submit(const DrawItem &item) {
         auto existing = std::find_if(frameMaterials_.begin(), frameMaterials_.end(),
                                      [&](const Material &mat) {
                                          return mat.baseColor == item.material->baseColor &&
+                                                mat.needsOutline == item.material->needsOutline &&
                                                 memcmp(&mat.baseColorFactor, &item.material->baseColorFactor,
                                                        sizeof(mat.baseColorFactor)) == 0;
                                      });
@@ -225,8 +240,17 @@ void Renderer::submit(const DrawItem &item) {
 }
 
 void Renderer::endFrame(const Camera &camera) {
+    // Rendering order:
+    // 0. Render skybox first (at far plane, depth test LESS_EQUAL, no depth write)
+    // 1. Mark selected entity in stencil buffer (write 1 to stencil)
+    // 2. Normal rendering (opaque + transparent)
+    // 3. Render enlarged outline only where stencil == 0 (outside entity)
+
+    renderSkybox(camera);
+    renderSelectedStencilMask(camera);
     renderOpaque(camera);
     renderTransparent(camera);
+    renderSelectedOutline(camera);
 
     opaqueItems_.clear();
     transparentItems_.clear();
@@ -1085,4 +1109,235 @@ void Renderer::drawRibbon(const std::vector<RibbonVertex> &vertices,
     // Cleanup
     ID3D11ShaderResourceView *nullSRV[1] = {nullptr};
     m_dev.context()->PSSetShaderResources(0, 1, nullSRV);
+}
+
+// Pass 1: Mark selected entity in stencil buffer
+void Renderer::renderSelectedStencilMask(const Camera &camera) {
+    // Create stencil state: always pass, write 1 to stencil
+    D3D11_DEPTH_STENCIL_DESC stencilDesc{};
+    stencilDesc.DepthEnable = TRUE;
+    stencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    stencilDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+    stencilDesc.StencilEnable = TRUE;
+    stencilDesc.StencilReadMask = 0xFF;
+    stencilDesc.StencilWriteMask = 0xFF;
+    stencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    stencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    stencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE; // Write stencil ref
+    stencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+    stencilDesc.BackFace = stencilDesc.FrontFace;
+
+    ID3D11DepthStencilState *stencilState = nullptr;
+    m_dev.device()->CreateDepthStencilState(&stencilDesc, &stencilState);
+    m_dev.context()->OMSetDepthStencilState(stencilState, 1); // Stencil ref = 1
+
+    // Disable color writes - only write to stencil
+    ID3D11BlendState *noColorWriteState = nullptr;
+    D3D11_BLEND_DESC blendDesc{};
+    blendDesc.RenderTarget[0].BlendEnable = FALSE;
+    blendDesc.RenderTarget[0].RenderTargetWriteMask = 0; // No color write
+    m_dev.device()->CreateBlendState(&blendDesc, &noColorWriteState);
+    m_dev.context()->OMSetBlendState(noColorWriteState, nullptr, 0xFFFFFFFF);
+
+    // Render selected items to stencil only
+    for (const auto &item: opaqueItems_) {
+        if (!item.material || !item.material->needsOutline || !item.mesh) continue;
+
+        Transform transform = item.transform;
+        XMMATRIX world = transform.world();
+        XMFLOAT4X4 worldM{};
+        XMStoreFloat4x4(&worldM, world);
+
+        InstanceData instance{};
+        instance.row0 = XMFLOAT4(worldM._11, worldM._12, worldM._13, worldM._14);
+        instance.row1 = XMFLOAT4(worldM._21, worldM._22, worldM._23, worldM._24);
+        instance.row2 = XMFLOAT4(worldM._31, worldM._32, worldM._33, worldM._34);
+        instance.row3 = XMFLOAT4(worldM._41, worldM._42, worldM._43, worldM._44);
+        instance.alpha = 1.0f;
+
+        std::vector<InstanceData> instances;
+        instances.push_back(instance);
+
+        drawInstancedBatch(*item.mesh, *item.material, instances, camera);
+    }
+
+    for (const auto &item: transparentItems_) {
+        if (!item.material || !item.material->needsOutline || !item.mesh) continue;
+
+        Transform transform = item.transform;
+        XMMATRIX world = transform.world();
+        XMFLOAT4X4 worldM{};
+        XMStoreFloat4x4(&worldM, world);
+
+        InstanceData instance{};
+        instance.row0 = XMFLOAT4(worldM._11, worldM._12, worldM._13, worldM._14);
+        instance.row1 = XMFLOAT4(worldM._21, worldM._22, worldM._23, worldM._24);
+        instance.row2 = XMFLOAT4(worldM._31, worldM._32, worldM._33, worldM._34);
+        instance.row3 = XMFLOAT4(worldM._41, worldM._42, worldM._43, worldM._44);
+        instance.alpha = 1.0f;
+
+        std::vector<InstanceData> instances;
+        instances.push_back(instance);
+
+        drawInstancedBatch(*item.mesh, *item.material, instances, camera);
+    }
+
+    // Restore color writes
+    m_dev.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+    m_dev.context()->OMSetDepthStencilState(nullptr, 0);
+    if (noColorWriteState) noColorWriteState->Release();
+    if (stencilState) stencilState->Release();
+}
+
+// Pass 3: Render outline only where stencil == 0
+void Renderer::renderSelectedOutline(const Camera &camera) {
+    // Render enlarged model with outline color, only where stencil == 0 (outside entity)
+    D3D11_DEPTH_STENCIL_DESC depthStencilDesc{};
+    depthStencilDesc.DepthEnable = TRUE;
+    depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; // Don't write depth
+    depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+    depthStencilDesc.StencilEnable = TRUE;
+    depthStencilDesc.StencilReadMask = 0xFF;
+    depthStencilDesc.StencilWriteMask = 0x00; // Don't write stencil
+    depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL; // Only draw where stencil == ref
+    depthStencilDesc.BackFace = depthStencilDesc.FrontFace;
+
+    ID3D11DepthStencilState *outlineDepthState = nullptr;
+    m_dev.device()->CreateDepthStencilState(&depthStencilDesc, &outlineDepthState);
+    m_dev.context()->OMSetDepthStencilState(outlineDepthState, 0); // Stencil ref = 0 (draw outside)
+
+    setAlphaBlending(false);
+    setBackfaceCulling(false); // Two-sided rendering for complete outline
+
+    // Create outline material with cyan color
+    Material outlineMaterial{};
+    outlineMaterial.baseColorFactor = m_outlineColor;
+
+    int outlineCount = 0;
+
+    // Render all opaque items that have needsOutline flag set
+    for (const auto &item: opaqueItems_) {
+        if (!item.material || !item.material->needsOutline || !item.mesh) continue;
+        outlineCount++;
+
+        // Create scaled transform (enlarged by m_outlineScale)
+        Transform scaledTransform = item.transform;
+        scaledTransform.scale.x *= m_outlineScale;
+        scaledTransform.scale.y *= m_outlineScale;
+        scaledTransform.scale.z *= m_outlineScale;
+
+        XMMATRIX world = scaledTransform.world();
+        XMFLOAT4X4 worldM{};
+        XMStoreFloat4x4(&worldM, world);
+
+        InstanceData instance{};
+        instance.row0 = XMFLOAT4(worldM._11, worldM._12, worldM._13, worldM._14);
+        instance.row1 = XMFLOAT4(worldM._21, worldM._22, worldM._23, worldM._24);
+        instance.row2 = XMFLOAT4(worldM._31, worldM._32, worldM._33, worldM._34);
+        instance.row3 = XMFLOAT4(worldM._41, worldM._42, worldM._43, worldM._44);
+        instance.alpha = 1.0f;
+
+        std::vector<InstanceData> instances;
+        instances.push_back(instance);
+
+        // Force state before each draw
+        setAlphaBlending(false);
+        drawInstancedBatch(*item.mesh, outlineMaterial, instances, camera);
+    }
+
+    // Render transparent items that have needsOutline flag set
+    for (const auto &item: transparentItems_) {
+        if (!item.material || !item.material->needsOutline || !item.mesh) continue;
+        outlineCount++;
+
+        Transform scaledTransform = item.transform;
+        scaledTransform.scale.x *= m_outlineScale;
+        scaledTransform.scale.y *= m_outlineScale;
+        scaledTransform.scale.z *= m_outlineScale;
+
+        XMMATRIX world = scaledTransform.world();
+        XMFLOAT4X4 worldM{};
+        XMStoreFloat4x4(&worldM, world);
+
+        InstanceData instance{};
+        instance.row0 = XMFLOAT4(worldM._11, worldM._12, worldM._13, worldM._14);
+        instance.row1 = XMFLOAT4(worldM._21, worldM._22, worldM._23, worldM._24);
+        instance.row2 = XMFLOAT4(worldM._31, worldM._32, worldM._33, worldM._34);
+        instance.row3 = XMFLOAT4(worldM._41, worldM._42, worldM._43, worldM._44);
+        instance.alpha = 1.0f;
+
+        std::vector<InstanceData> instances;
+        instances.push_back(instance);
+
+        // Force state before each draw
+        setAlphaBlending(false);
+        drawInstancedBatch(*item.mesh, outlineMaterial, instances, camera);
+    }
+
+    //wprintf(L"Rendered %d outlined objects\n", outlineCount);
+    // Restore state
+    m_dev.context()->OMSetDepthStencilState(nullptr, 0);
+    if (outlineDepthState) outlineDepthState->Release();
+    setBackfaceCulling(true);
+}
+
+// ==== Skybox Management ====
+
+bool Renderer::initializeSkybox() {
+    if (!m_dev.device()) return false;
+
+    m_skybox = std::make_unique<Skybox>();
+    if (!m_skybox->initialize(m_dev.device())) {
+        wprintf(L"Failed to initialize skybox\n");
+        m_skybox.reset();
+        return false;
+    }
+
+    wprintf(L"Skybox initialized successfully\n");
+    return true;
+}
+
+bool Renderer::loadSkyboxCubeMap(const std::wstring &rightPath, const std::wstring &leftPath,
+                                 const std::wstring &topPath, const std::wstring &bottomPath,
+                                 const std::wstring &frontPath, const std::wstring &backPath) {
+    if (!m_skybox) {
+        if (!initializeSkybox()) {
+            return false;
+        }
+    }
+
+    return m_skybox->loadCubeMap(m_dev.device(), rightPath, leftPath, topPath, bottomPath, frontPath, backPath);
+}
+
+bool Renderer::loadSkyboxFromDDS(const std::wstring &ddsPath) {
+    if (!m_skybox) {
+        if (!initializeSkybox()) {
+            return false;
+        }
+    }
+
+    return m_skybox->loadCubeMapFromDDS(m_dev.device(), ddsPath);
+}
+
+bool Renderer::createSolidColorSkybox(unsigned char r, unsigned char g,
+                                      unsigned char b, unsigned char a) {
+    if (!m_skybox) {
+        if (!initializeSkybox()) {
+            return false;
+        }
+    }
+
+    return m_skybox->createSolidColorCubeMap(m_dev.device(), r, g, b, a);
+}
+
+void Renderer::renderSkybox(const Camera &camera) {
+    if (!isSkyboxEnabled() || !m_skyboxShader.vs()) {
+        return;
+    }
+
+    float aspect = static_cast<float>(m_dev.width()) / static_cast<float>(m_dev.height());
+    m_skybox->render(m_dev.context(), camera, m_skyboxShader, aspect, m_dev.width(), m_dev.height());
 }

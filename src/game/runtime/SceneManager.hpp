@@ -24,4 +24,5 @@ private:
 
     Renderer *renderer_ = nullptr;
     std::unique_ptr<Scene> currentScene_;
+    std::unique_ptr<Scene> pendingScene_;  // 待切换的场景
 };

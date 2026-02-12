@@ -163,9 +163,10 @@ struct CommandBuffer {
 struct WorldContext {
     float time = 0.0f;
     float dt = 0.0f;
-    const PhysicsQuery *physics = nullptr;   // 只读物理查询
-    const EntityQuery *entities = nullptr;   // 只读实体查询
-    CommandBuffer *commands = nullptr;       // 可写命令缓冲
-    ResourceManager *resources = nullptr;    // 资源管理器（用于加载模型/纹理）
-    Renderer *currentrenderer = nullptr;    // 当前渲染器
+    const PhysicsQuery *physics = nullptr; // 只读物理查询
+    const EntityQuery *entities = nullptr; // 只读实体查询
+    CommandBuffer *commands = nullptr; // 可写命令缓冲
+    ResourceManager *resources = nullptr; // 资源管理器（用于加载模型/纹理）
+    Renderer *currentrenderer = nullptr; // 当前渲染器
+    class Camera *camera = nullptr; // 相机指针（用于触发抖动等效果）
 };
